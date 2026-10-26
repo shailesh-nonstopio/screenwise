@@ -165,3 +165,20 @@ def test_non_finite_band_values_are_ignored():
     from app.services.jobs import _float
 
     assert _float("nan", 0) == 0 and _float("inf", 99) == 99 and _float("2.5", 0) == 2.5
+
+
+def test_misconfiguration_shows_setup_page_instead_of_crashing(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import config
+    from app.config import Settings
+    from app.main import create_app
+
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.setenv("VERCEL_URL", "example.vercel.app")
+    config.settings_override = Settings(_env_file=None)
+    assert config.settings_override.base_url == "https://example.vercel.app"
+    with TestClient(create_app()) as c:
+        r = c.get("/")
+        assert r.status_code == 503 and "SECRET_KEY" in r.text and "DATABASE_URL" in r.text
+        assert c.get("/healthz").json()["status"] == "misconfigured"

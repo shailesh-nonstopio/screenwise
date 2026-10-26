@@ -36,10 +36,14 @@ def home(user: User | None = Depends(current_user_optional)):
 
 
 @router.get("/login")
-def login_page(request: Request, next: str | None = None, user: User | None = Depends(current_user_optional)):
+def login_page(request: Request, next: str | None = None, user: User | None = Depends(current_user_optional), db: Session = Depends(get_db)):
     if user:
         return RedirectResponse(_safe_next(next), status_code=303)
-    return render(request, "login.html", {"next": _safe_next(next), "email": ""})
+    try:
+        no_users = not db.scalar(select(func.count(User.id)))
+    except Exception:  # noqa: BLE001 - the page should still render if the DB is unavailable
+        no_users = False
+    return render(request, "login.html", {"next": _safe_next(next), "email": "", "no_users": no_users})
 
 
 @router.post("/login", dependencies=[Depends(verify_csrf)])

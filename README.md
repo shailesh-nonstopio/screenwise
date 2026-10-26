@@ -53,9 +53,9 @@ Push this folder to a Git repository and import it in Vercel. You don't need to 
 |---|---|
 | `APP_ENV` | `production` |
 | `SECRET_KEY` | 48+ random chars: `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
-| `BASE_URL` | `https://your-domain` (used in invitation links; must be https) |
-| `DATABASE_URL` | your pooled Postgres URL |
-| `RUN_MIGRATIONS_ON_BUILD` | `1` (applies migrations during each production build) |
+| `BASE_URL` | optional on Vercel: defaults to the project's production URL. Set it if you use a custom domain. |
+| `DATABASE_URL` | your pooled Neon URL (`POSTGRES_URL` from the Neon integration is also picked up) |
+| `AUTO_MIGRATE` | optional: migrations run automatically on Vercel when the app starts (Postgres advisory-locked). Set `false` and use `RUN_MIGRATIONS_ON_BUILD=1` if you prefer build-time migrations. |
 | `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | first admin; only used while there are no users. Remove after first sign-in. |
 | `COMPANY_NAME`, `SUPPORT_EMAIL`, `ACCESSIBILITY_EMAIL`, `PRIVACY_EMAIL`, `RETENTION_DAYS` | shown to candidates |
 | `LLM_PROVIDER` + key | `openai` + `OPENAI_API_KEY`, or `anthropic` + `ANTHROPIC_API_KEY` |
@@ -148,8 +148,8 @@ alembic revision --autogenerate -m "change"   # new migration after model change
 
 | Symptom | Fix |
 |---|---|
-| Vercel function crashes on start with "Refusing to start with insecure production configuration" | Set `SECRET_KEY` (32+ chars), an `https://` `BASE_URL`, and a Postgres `DATABASE_URL`. |
-| `relation "users" does not exist` | Migrations haven't run. Set `RUN_MIGRATIONS_ON_BUILD=1` and redeploy, or run `DATABASE_URL=... python -m app.cli migrate` locally. |
+| Every page shows "The app isn't configured yet" (503) | The page lists exactly which variables to fix, usually `SECRET_KEY` (32+ chars) or `DATABASE_URL`. Fix them, then redeploy. |
+| `relation "users" does not exist` | Migrations didn't run. Check the function logs for the migration error, or run `DATABASE_URL=... python -m app.cli migrate` locally. |
 | Can't sign in on first deploy | Set `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` (12+ chars) while the users table is empty, or use `create-user`. |
 | Invitations show "Logged (not sent)" | `EMAIL_BACKEND` is still `dryrun`. |
 | Invitation shows "Failed" | The error is shown on the Invitations tab and in the Email log. For Resend, verify the `EMAIL_FROM` domain. |

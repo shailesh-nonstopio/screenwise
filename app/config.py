@@ -6,10 +6,11 @@ import os
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 INSECURE_DEFAULT_SECRET = "dev-insecure-secret-change-me"
+DEFAULT_SQLITE = "sqlite:///./screenwise.db"
 
 
 class Settings(BaseSettings):
@@ -18,9 +19,9 @@ class Settings(BaseSettings):
     # --- Core -----------------------------------------------------------------
     app_env: Literal["development", "test", "production"] = "development"
     secret_key: str = INSECURE_DEFAULT_SECRET
-    base_url: str = "http://localhost:8000"
-    database_url: str = "sqlite:///./screenwise.db"
-    auto_migrate: bool = False
+    base_url: str = ""  # defaults to the Vercel production URL, else http://localhost:8000
+    database_url: str = DEFAULT_SQLITE
+    auto_migrate: bool | None = None  # default: on when running on Vercel with PostgreSQL
     log_level: str = "INFO"
     display_timezone: str = "Asia/Kolkata"
 
@@ -82,6 +83,27 @@ class Settings(BaseSettings):
             v = "postgresql+psycopg://" + v[len("postgresql://"):]
         return v
 
+    @model_validator(mode="after")
+    def _platform_defaults(self) -> "Settings":
+        # BASE_URL: fall back to the URL Vercel assigns to the project.
+        if not self.base_url:
+            host = os.environ.get("VERCEL_PROJECT_PRODUCTION_URL") or os.environ.get("VERCEL_URL")
+            self.base_url = f"https://{host}" if host else "http://localhost:8000"
+        self.base_url = self.base_url.rstrip("/")
+        # DATABASE_URL: the Neon / Vercel Postgres integration may only set POSTGRES_URL.
+        if self.database_url == DEFAULT_SQLITE:
+            for key in ("POSTGRES_URL", "NEON_DATABASE_URL"):
+                if os.environ.get(key):
+                    self.database_url = self._normalise_db_url(os.environ[key])
+                    break
+        return self
+
+    @property
+    def should_auto_migrate(self) -> bool:
+        if self.auto_migrate is not None:
+            return self.auto_migrate
+        return self.on_vercel and not self.is_sqlite
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
@@ -135,13 +157,13 @@ class Settings(BaseSettings):
         problems: list[str] = []
         if self.is_production or self.on_vercel:
             if self.secret_key == INSECURE_DEFAULT_SECRET or len(self.secret_key) < 32:
-                problems.append("SECRET_KEY must be set to a random value of at least 32 characters.")
+                problems.append("SECRET_KEY is missing or shorter than 32 characters. Set it to a long random value.")
             if self.is_sqlite and self.on_vercel:
-                problems.append("DATABASE_URL must point to PostgreSQL on Vercel (the filesystem is not persistent).")
+                problems.append("DATABASE_URL is not set. Add your Neon PostgreSQL connection string (the filesystem on Vercel is not persistent).")
             if self.storage_backend == "local" and self.on_vercel:
                 problems.append("STORAGE_BACKEND=local is not persistent on Vercel; use 'database'.")
             if not self.base_url.startswith("https://"):
-                problems.append("BASE_URL must use https:// in production.")
+                problems.append(f"BASE_URL must start with https:// (currently “{self.base_url}”).")
         return problems
 
 

@@ -19,6 +19,7 @@ from app.logging_config import configure_logging, redact
 from app.security import LoginRequired
 
 log = logging.getLogger("app")
+CONFIG_PROBLEMS: list[str] = []
 
 CSP = (
     "default-src 'self'; "
@@ -35,12 +36,31 @@ CSP = (
 )
 
 
+def _config_error_response(request: Request):
+    from html import escape
+
+    from fastapi.responses import HTMLResponse
+
+    if request.url.path == "/healthz":
+        return JSONResponse({"status": "misconfigured", "problems": CONFIG_PROBLEMS}, status_code=503)
+    items = "".join(f"<li>{escape(p)}</li>" for p in CONFIG_PROBLEMS)
+    body = (
+        "<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width'>"
+        "<title>Setup needed</title><link rel='stylesheet' href='/static/css/app.css'></head><body>"
+        "<main class='auth-wrap'><section class='state-card container-sm'><div class='state-tag'>Setup needed</div>"
+        "<h1>The app isn't configured yet</h1><p class='p'>Fix these environment variables in your hosting settings "
+        "(Vercel → Project → Settings → Environment Variables), then redeploy:</p>"
+        f"<ul class='p'>{items}</ul><p class='small muted'>No secret values are shown here.</p></section></main></body></html>"
+    )
+    return HTMLResponse(body, status_code=503)
+
+
 def _bootstrap() -> None:
     from app.database import db_session
     from app.services.bootstrap import ensure_admin, run_migrations
 
     s = settings()
-    if s.auto_migrate:
+    if s.should_auto_migrate:
         run_migrations()
     if s.bootstrap_admin_email and s.bootstrap_admin_password:
         with db_session() as db:
@@ -51,15 +71,19 @@ def _bootstrap() -> None:
 async def lifespan(_: FastAPI):
     s = settings()
     configure_logging(s.log_level)
-    problems = s.startup_problems()
-    if problems:
-        for p in problems:
+    CONFIG_PROBLEMS.clear()
+    CONFIG_PROBLEMS.extend(s.startup_problems())
+    if CONFIG_PROBLEMS:
+        # Don't serve the app, but explain why instead of crashing with an opaque 500.
+        for p in CONFIG_PROBLEMS:
             log.error("configuration problem: %s", p)
-        raise RuntimeError("Refusing to start with insecure production configuration: " + " ".join(problems))
+        yield
+        return
     try:
         _bootstrap()
-    except Exception:  # noqa: BLE001 - surface clearly but keep the error page reachable
+    except Exception as exc:  # noqa: BLE001 - surface clearly instead of crashing every request
         log.exception("startup bootstrap failed")
+        CONFIG_PROBLEMS.append(f"Database setup failed ({type(exc).__name__}). Check DATABASE_URL and that the database is reachable. Details are in the function logs.")
     yield
 
 
@@ -77,7 +101,10 @@ def create_app() -> FastAPI:
     async def security_headers(request: Request, call_next):
         start = time.perf_counter()
         request.state.request_id = secrets.token_hex(6)
-        response = await call_next(request)
+        if CONFIG_PROBLEMS and not request.url.path.startswith("/static"):
+            response = _config_error_response(request)
+        else:
+            response = await call_next(request)
         h = response.headers
         h.setdefault("Content-Security-Policy", CSP)
         h.setdefault("X-Content-Type-Options", "nosniff")

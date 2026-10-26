@@ -9,6 +9,7 @@
       <h1 class="mb-8">Sign in</h1>
       <p class="muted mb-24">Recruiter access for {{ settings().company_name }}.</p>
       {{ m.flashes(flashes) }}
+      {% if no_users %}<div class="alert alert-info mb-16">{{ m.icon('info') }}<div><strong>No accounts yet.</strong> Set <span class="mono">BOOTSTRAP_ADMIN_EMAIL</span> and <span class="mono">BOOTSTRAP_ADMIN_PASSWORD</span> (12+ characters) in your environment variables and redeploy, or run <span class="mono">python -m app.cli create-user</span>.</div></div>{% endif %}
       {% if error %}<div class="alert alert-error mb-16" role="alert">{{ m.icon('alert') }}<div>{{ error }}</div></div>{% endif %}
       <form method="post" action="/login" class="stack" novalidate>
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
