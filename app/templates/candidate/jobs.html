@@ -1,0 +1,21 @@
+{% extends "candidate/_layout.html" %}
+{% import "_macros.html" as m %}
+{% block page_title %}Open roles{% endblock %}
+{% block body_class %}white{% endblock %}
+{% block content %}
+<div class="container-md page">
+  <h1 class="mb-8">Open roles</h1>
+  <p class="muted mb-24">Apply with your resume. If there's a match, we'll invite you to a short written interview. A recruiter makes every decision.</p>
+  <div class="stack">
+    {% for j in jobs %}
+    <a class="card job-card" href="/jobs/{{ j.id }}">
+      <span class="xsmall muted medium">{{ j.department or 'Role' }}{% if j.location %} · {{ j.location }}{% endif %} · {{ SENIORITY_LABELS.get(j.seniority, '') }}</span>
+      <span class="job-card-title">{{ j.title }}</span>
+      <span class="small muted">{{ j.description|truncate(180) }}</span>
+    </a>
+    {% else %}
+    <div class="card empty"><h3>No open roles right now</h3><p>Please check back later.</p></div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

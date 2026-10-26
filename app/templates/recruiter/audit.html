@@ -1,0 +1,24 @@
+{% extends "recruiter/_layout.html" %}
+{% import "_macros.html" as m %}
+{% block page_title %}Audit log{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Audit log</h1><p>The latest 300 events. Metadata never contains resumes, answers, tokens or secrets.</p></div></div>
+<section class="card card-flush">
+  <div class="table-wrap">
+    <table class="table compact table-min-760">
+      <thead><tr><th scope="col">When</th><th scope="col">Actor</th><th scope="col">Action</th><th scope="col">Entity</th><th scope="col">Details</th></tr></thead>
+      <tbody>
+        {% for e in events %}
+        <tr>
+          <td class="nowrap">{{ e.timestamp|dt('%b %d, %H:%M:%S') }}</td>
+          <td>{% if e.actor_type == 'user' and e.actor_id and users.get(e.actor_id|int) %}{{ users[e.actor_id|int].name }}{% else %}<span class="muted">{{ e.actor_type }}{% if e.actor_id %} #{{ e.actor_id }}{% endif %}</span>{% endif %}</td>
+          <td class="mono">{{ e.action }}</td>
+          <td class="mono">{{ e.entity_type }} #{{ e.entity_id }}</td>
+          <td class="mono xsmall muted">{% for k, v in e.safe_metadata.items() %}{{ k }}={{ v }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+        </tr>
+        {% else %}<tr><td colspan="5" class="muted">No events yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

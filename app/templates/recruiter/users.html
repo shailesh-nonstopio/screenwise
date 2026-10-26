@@ -1,0 +1,39 @@
+{% extends "recruiter/_layout.html" %}
+{% import "_macros.html" as m %}
+{% block page_title %}Team{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Team</h1><p>Recruiters can manage jobs and candidates. Administrators can also manage accounts and view the audit log.</p></div></div>
+<div class="split">
+  <section class="card card-flush main-col">
+    <div class="table-wrap">
+      <table class="table table-min-640">
+        <thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Role</th><th scope="col">Last sign-in</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Action</span></th></tr></thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td class="medium">{{ u.name }}</td><td class="small">{{ u.email }}</td>
+            <td>{{ m.chip('Admin' if u.is_admin else 'Recruiter', 'violet' if u.is_admin else 'neutral', dot=False) }}</td>
+            <td class="small">{{ u.last_login_at|dt('%b %d, %H:%M') if u.last_login_at else 'Never' }}</td>
+            <td>{{ m.chip('Active' if u.is_active else 'Deactivated', 'green' if u.is_active else 'outline') }}</td>
+            <td class="right">{% if u.id != user.id %}<form method="post" action="/recruiter/users/{{ u.id }}/toggle"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-secondary btn-sm" type="submit">{{ 'Deactivate' if u.is_active else 'Reactivate' }}</button></form>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <aside class="side-col">
+    <section class="card">
+      <h2 class="mb-12">Add a team member</h2>
+      <form method="post" action="/recruiter/users" class="stack" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="field"><label class="label" for="u-name">Name</label><input class="input{{ m.invalid(errors, 'name') }}" id="u-name" name="name" value="{{ form.name or '' }}" autocomplete="off">{{ m.field_error(errors, 'name') }}</div>
+        <div class="field"><label class="label" for="u-email">Email</label><input class="input{{ m.invalid(errors, 'email') }}" id="u-email" name="email" type="email" value="{{ form.email or '' }}" autocomplete="off">{{ m.field_error(errors, 'email') }}</div>
+        <div class="field"><label class="label" for="u-pw">Temporary password</label><input class="input{{ m.invalid(errors, 'password') }}" id="u-pw" name="password" type="password" autocomplete="new-password"><span class="hint">At least 12 characters. Ask them to change it after signing in.</span>{{ m.field_error(errors, 'password') }}</div>
+        <div class="field"><label class="label" for="u-role">Role</label><select class="select" id="u-role" name="role"><option value="recruiter">Recruiter</option><option value="admin" {% if form.role == 'admin' %}selected{% endif %}>Administrator</option></select></div>
+        <button class="btn btn-primary" type="submit">Create account</button>
+      </form>
+    </section>
+  </aside>
+</div>
+{% endblock %}

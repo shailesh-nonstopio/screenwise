@@ -1,0 +1,157 @@
+{% extends "recruiter/_layout.html" %}
+{% import "_macros.html" as m %}
+{% block page_title %}{{ 'Edit job' if job else 'New job' }}{% endblock %}
+
+{% macro crit_card(i, c) %}
+<div class="crit-card" data-crit-row>
+  <input type="hidden" name="criteria-{{ i }}-id" value="{{ c.id or '' }}">
+  <div class="row-between">
+    <div class="grow stack-sm">
+      <label class="label" for="criteria-{{ i }}-name">Criterion</label>
+      <input class="input" id="criteria-{{ i }}-name" name="criteria-{{ i }}-name" value="{{ c.name or '' }}" placeholder="e.g. Python API development" maxlength="160">
+    </div>
+    <label class="check mt-24"><input type="checkbox" name="criteria-{{ i }}-remove" value="1"><span> Remove</span></label>
+  </div>
+  <div class="stack-sm mt-12">
+    <label class="label" for="criteria-{{ i }}-description">What good looks like <span class="faint">(optional)</span></label>
+    <input class="input" id="criteria-{{ i }}-description" name="criteria-{{ i }}-description" value="{{ c.description or '' }}" placeholder="e.g. Designs, builds and tests production REST services" maxlength="500">
+  </div>
+  <details class="mt-8">
+    <summary>Rating anchors (1–4)</summary>
+    <div class="anchors">
+      {% for n, lbl in [('1','1 · No relevant evidence'),('2','2 · Partial / basic'),('3','3 · Meets requirement'),('4','4 · Strong, beyond requirement')] %}
+      <div class="stack-sm">
+        <label class="label" for="criteria-{{ i }}-a{{ n }}">{{ lbl }}</label>
+        <textarea class="textarea" id="criteria-{{ i }}-a{{ n }}" name="criteria-{{ i }}-a{{ n }}" rows="3" maxlength="400">{{ (c.anchors or {}).get(n, '') }}</textarea>
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+</div>
+{% endmacro %}
+
+{% block content %}
+<a class="back" href="{{ '/recruiter/jobs/%d' % job.id if job else '/recruiter/jobs' }}">← {{ 'Back to job' if job else 'All jobs' }}</a>
+<form method="post" action="{{ '/recruiter/jobs/%d/edit' % job.id if job else '/recruiter/jobs/new' }}" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="page-head">
+    <div>
+      <h1>{{ 'Edit: ' ~ job.title if job else 'New job' }}</h1>
+      <p>The description, criteria and rubric drive every interview for this role.{% if job %} Changing criteria, anchors or behaviours creates rubric v{{ job.rubric_version + 1 }}; interviews already started keep their version.{% endif %}</p>
+    </div>
+    <div class="row">
+      {% if job %}{{ m.chip('Rubric v%d' % job.rubric_version, 'neutral', dot=False) }}{% endif %}
+      <button class="btn btn-primary" type="submit">{{ 'Save changes' if job else 'Save draft' }}</button>
+    </div>
+  </div>
+
+  {% if errors %}
+  <div class="alert alert-error mb-24" role="alert">{{ m.icon('alert') }}<div><strong>Please fix the highlighted fields.</strong>{% for k, v in errors.items() %}<div>{{ v }}</div>{% endfor %}</div></div>
+  {% endif %}
+
+  <div class="split">
+    <div class="main-col">
+      <section class="card" aria-labelledby="s-basics">
+        <h2 id="s-basics">Role basics</h2>
+        <p class="card-sub">Shown to candidates on the application page and in the invitation email.</p>
+        <div class="form-grid">
+          <div class="field">
+            <label class="label" for="title">Job title</label>
+            <input id="title" name="title" class="input{{ m.invalid(errors, 'title') }}" value="{{ form.title }}" maxlength="200" required>
+            {{ m.field_error(errors, 'title') }}
+          </div>
+          <div class="field">
+            <label class="label" for="seniority">Seniority</label>
+            <select id="seniority" name="seniority" class="select">
+              {% for k, v in SENIORITY_LABELS.items() %}<option value="{{ k }}" {% if form.seniority == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label class="label" for="department">Team / department</label>
+            <input id="department" name="department" class="input" value="{{ form.department }}" maxlength="120">
+          </div>
+          <div class="field">
+            <label class="label" for="location">Location / work type</label>
+            <input id="location" name="location" class="input" value="{{ form.location }}" placeholder="e.g. Pune · Hybrid" maxlength="200">
+          </div>
+        </div>
+        <div class="field mt-16">
+          <label class="label" for="description">Job description</label>
+          <textarea id="description" name="description" class="textarea{{ m.invalid(errors, 'description') }}" rows="7">{{ form.description }}</textarea>
+          {{ m.field_error(errors, 'description') }}
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="s-crit">
+        <h2 id="s-crit">Essential criteria and rubric</h2>
+        <p class="card-sub">Each essential criterion is scored and reported on its own; they are never averaged together. The AI must cite evidence for a score or say “Insufficient evidence” / “Not assessed”.</p>
+        {{ m.field_error(errors, 'criteria') }}
+        <div class="stack" id="criteria-list" data-next-index="{{ form.essential_criteria|length }}">
+          {% for c in form.essential_criteria %}{{ crit_card(loop.index0, c) }}{% endfor %}
+        </div>
+        <template id="criterion-template">{{ crit_card('__i__', {'id': '', 'name': '', 'description': '', 'anchors': {'1': 'No relevant evidence in the answers.', '2': 'Partial or basic evidence; few specifics about their own work.', '3': 'Clear, specific evidence that meets the requirement.', '4': 'Strong evidence beyond the requirement, with reasoning about trade-offs or impact.'}}) }}</template>
+        <button type="button" class="btn btn-secondary mt-12" data-add-criterion>{{ m.icon('plus', 16) }}Add essential criterion</button>
+
+        <div class="field mt-24">
+          <label class="label" for="preferred_criteria">Preferred skills <span class="faint">(comma-separated, not scored separately)</span></label>
+          <input id="preferred_criteria" name="preferred_criteria" class="input" value="{{ form.preferred_criteria|join(', ') }}" placeholder="e.g. Payments systems, Celery, AWS">
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="s-beh">
+        <h2 id="s-beh">Workplace behaviours</h2>
+        <p class="card-sub">Job-related working practices only, asked with the same structured question for every candidate. Never “culture fit”.</p>
+        <div class="grid-auto">
+          {% for b in form.behaviors %}
+          <div class="check-card stack-sm">
+            <label class="check"><input type="checkbox" name="behavior-{{ b.id }}-enabled" value="1" {% if b.enabled %}checked{% endif %}><span class="medium">{{ b.name }}</span></label>
+            <label class="sr-only" for="behavior-{{ b.id }}-anchor">Anchor for {{ b.name }}</label>
+            <input class="input" id="behavior-{{ b.id }}-anchor" name="behavior-{{ b.id }}-anchor" value="{{ b.anchor }}" maxlength="300">
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+
+    <aside class="side-col">
+      <section class="card" aria-labelledby="s-int">
+        <h2 id="s-int">Interview settings</h2>
+        <p class="card-sub">Same core questions for everyone on this role.</p>
+        <div class="grid-2">
+          <div class="field"><label class="label" for="max_followups">Max follow-ups</label><input id="max_followups" name="max_followups" class="input" type="number" min="0" max="10" value="{{ form.max_followups }}"></div>
+          <div class="field"><label class="label" for="estimated_minutes">Estimated minutes</label><input id="estimated_minutes" name="estimated_minutes" class="input" type="number" min="5" max="120" value="{{ form.estimated_minutes }}"></div>
+          <div class="field"><label class="label" for="invite_valid_days">Link valid (days)</label><input id="invite_valid_days" name="invite_valid_days" class="input" type="number" min="1" max="30" value="{{ form.invite_valid_days }}"></div>
+        </div>
+        <div class="box-quiet small mt-16 row">{{ m.icon('camoff') }} Text only. Camera and microphone are not used.</div>
+      </section>
+
+      <section class="card" aria-labelledby="s-bands">
+        <h2 id="s-bands">Experience bands</h2>
+        <p class="card-sub">One signal for question depth, alongside role seniority and the answers themselves. Longer careers don't automatically score higher.</p>
+        {{ m.field_error(errors, 'bands') }}
+        <div class="stack-sm">
+          <div class="band-row xsmall muted" aria-hidden="true"><span>Label</span><span>From (yrs)</span><span>To (yrs)</span><span>Focus</span></div>
+          {% for b in (form.bands + [{'label':'','min_years':'','max_years':'','focus':''}])[:8] %}
+          <div class="band-row">
+            <input class="input" name="band-{{ loop.index0 }}-label" value="{{ b.label }}" aria-label="Band {{ loop.index }} label" maxlength="30">
+            <input class="input" name="band-{{ loop.index0 }}-min" value="{{ b.min_years }}" aria-label="Band {{ loop.index }} from years" inputmode="decimal">
+            <input class="input" name="band-{{ loop.index0 }}-max" value="{{ b.max_years }}" aria-label="Band {{ loop.index }} to years" inputmode="decimal">
+            <input class="input" name="band-{{ loop.index0 }}-focus" value="{{ b.focus }}" aria-label="Band {{ loop.index }} focus" maxlength="200">
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="card card-quiet" aria-labelledby="s-guard">
+        <h2 id="s-guard">Guardrails (always on)</h2>
+        <ul class="small mt-8">
+          <li class="li">No trick questions, trivia or questions about personal or protected characteristics.</li>
+          <li class="li">No automatic rejection. A recruiter records every decision.</li>
+          <li class="li">Unclear answers get a neutral clarification, not a penalty.</li>
+        </ul>
+      </section>
+      <button class="btn btn-primary btn-block" type="submit">{{ 'Save changes' if job else 'Save draft' }}</button>
+    </aside>
+  </div>
+</form>
+{% endblock %}

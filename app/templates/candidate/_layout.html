@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{% block page_title %}{% endblock %} · {{ settings().company_name }}{% endblock %}
+{% block body %}
+<header class="cand-top">
+  <div class="{% block header_container %}container-md{% endblock %} cand-top-inner">
+    <a class="cand-brand" href="/jobs">{{ settings().company_name }} <span class="muted medium">{% block brand_suffix %}Careers{% endblock %}</span></a>
+    {% block header_right %}<span class="powered">Screening by {{ settings().product_name }}</span>{% endblock %}
+  </div>
+</header>
+<main id="main">
+  {% block content %}{% endblock %}
+</main>
+{% endblock %}

@@ -1,0 +1,32 @@
+Hi {{ candidate_first }},
+
+Thanks for applying for the {{ job.title }} role at {{ s.company_name }}. The next step is a short written interview you can take at a time that suits you.
+
+Start your interview: {{ link }}
+
+This link is personal to you and works until {{ expires_at|dt }}.
+{% if note %}
+A note from the recruiter:
+{{ note }}
+{% endif %}
+WHAT TO EXPECT
+- About {{ job.estimated_minutes }} minutes, {{ question_count }} questions plus a few short follow-ups.
+- Questions appear one at a time in a chat window. Read each one, type your answer in the box, then press Submit.
+- You can ask for clarification at any time. Asking does not count against you.
+- You can edit an answer before you submit it. If your connection drops, your progress is saved and you can reopen this link.
+
+CAMERA AND MICROPHONE
+Not used. This is a text-only interview: your camera and microphone stay off and nothing is recorded except what you type.
+
+HOW YOUR ANSWERS ARE USED
+Your answers and resume are processed by an AI system ({{ s.ai_processor_name }}) to prepare a summary for our recruiting team. A recruiter reviews every interview and makes all decisions; the AI does not reject anyone. We keep this data for {{ s.retention_days }} days, and you can ask us to delete it sooner by writing to {{ s.privacy_email }}.
+Privacy notice: {{ s.base_url }}/privacy
+
+NEED AN ADJUSTMENT?
+If you need extra time, a different format or any other accommodation, email {{ s.accessibility_email }} before you start and we will arrange it.
+
+TECHNICAL HELP
+Use a recent browser on a computer or phone. If something goes wrong, write to {{ s.support_email }}.
+
+Best wishes,
+{{ s.company_name }} Recruiting

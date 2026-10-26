@@ -1,0 +1,28 @@
+{% extends "recruiter/_layout.html" %}
+{% import "_macros.html" as m %}
+{% block page_title %}Email log{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Email log</h1><p>Every email attempt, newest first. Interview links are redacted before storage.{% if settings().email_backend == 'dryrun' %} Dry-run mode: nothing here was actually sent.{% endif %}</p></div></div>
+<section class="card card-flush">
+  {% if emails %}
+  <div class="table-wrap">
+    <table class="table table-min-760">
+      <thead><tr><th scope="col">When</th><th scope="col">To</th><th scope="col">Subject</th><th scope="col">Backend</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>
+      <tbody>
+        {% for e in emails %}
+        <tr>
+          <td class="small nowrap">{{ e.created_at|dt('%b %d, %H:%M') }}</td>
+          <td class="small">{{ e.to_email }}</td>
+          <td class="small">{{ e.subject }}{% if e.error %}<div class="xsmall tone-red">{{ e.error }}</div>{% endif %}</td>
+          <td class="small mono">{{ e.backend }}</td>
+          <td>{{ m.chip({'logged_not_sent':'Logged (not sent)','sent':'Sent','failed':'Failed'}.get(e.status, e.status), {'logged_not_sent':'amber','sent':'green','failed':'red'}.get(e.status, 'neutral')) }}</td>
+          <td class="right">{% if e.application_id %}<a class="rowlink" href="/recruiter/applications/{{ e.application_id }}/invite">Open →</a>{% endif %}</td>
+        </tr>
+        <tr><td colspan="6"><details class="small"><summary class="muted">Show message text</summary><pre class="prewrap box-quiet mt-8 small">{{ e.body_text }}</pre></details></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}<div class="empty"><h3>No emails yet</h3><p>Invitations you send will appear here.</p></div>{% endif %}
+</section>
+{% endblock %}

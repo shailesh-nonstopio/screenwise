@@ -1,0 +1,25 @@
+{% extends "candidate/_layout.html" %}
+{% import "_macros.html" as m %}
+{% block page_title %}Privacy notice{% endblock %}
+{% block body_class %}white{% endblock %}
+{% block content %}
+{% set s = settings() %}
+<div class="container-sm page jd">
+  <h1>Candidate privacy notice</h1>
+  <p class="muted mt-8">How {{ s.company_name }} uses your information during screening.</p>
+  <h2>What we collect</h2>
+  <ul><li>Your name and email address.</li><li>Your resume file and the text extracted from it.</li><li>The answers you type in the written interview, with timestamps.</li><li>The recruiter's notes and decision about your application.</li></ul>
+  <h2>What we don't collect</h2>
+  <p>We don't use your camera or microphone, record video or audio, or analyse your face, voice, emotions or appearance. We don't ask about or use protected characteristics such as age, gender, ethnicity, religion, disability or family status.</p>
+  <h2>Why we process it</h2>
+  <p>To assess your application against the job-related criteria for the role and to decide the next step in the hiring process.</p>
+  <h2>How AI is used</h2>
+  <p>An AI system ({{ s.ai_processor_name }}) helps parse your resume, asks follow-up questions to clarify your answers, and drafts a summary of the evidence for the recruiter. The AI does not make decisions: a recruiter reviews your answers and records every decision. The AI cannot reject your application.</p>
+  <h2>Who can see it</h2>
+  <p>Authorised members of {{ s.company_name }}'s recruiting team. The AI provider processes the text to produce the summary under its data-processing terms.</p>
+  <h2>How long we keep it</h2>
+  <p>{{ s.retention_days }} days after your application was last updated, then it is deleted automatically. A minimal audit record without your personal details is kept.</p>
+  <h2>Your choices</h2>
+  <p>You can ask for a copy of your data, a correction, or deletion at any time by emailing <a href="mailto:{{ s.privacy_email }}">{{ s.privacy_email }}</a>. If you need an adjustment to the process, email <a href="mailto:{{ s.accessibility_email }}">{{ s.accessibility_email }}</a>.</p>
+</div>
+{% endblock %}

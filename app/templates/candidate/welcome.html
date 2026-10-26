@@ -1,0 +1,64 @@
+{% extends "candidate/_layout.html" %}
+{% import "_macros.html" as m %}
+{% block page_title %}Before you start{% endblock %}
+{% block header_container %}container-sm{% endblock %}
+{% block brand_suffix %}{% endblock %}
+{% block header_right %}<span class="small muted">Link valid until {{ inv.expires_at|dt('%b %d, %H:%M') }}</span>{% endblock %}
+{% block content %}
+{% set s = settings() %}
+<div class="container-sm page">
+  <div class="small muted medium">Written interview</div>
+  <h1 class="mt-8">Hi {{ app.candidate.name.split()[0] }}, welcome to your interview for {{ app.job.title }}</h1>
+
+  <div class="grid-auto-sm mt-24 mb-24">
+    <div class="card welcome-stat"><span class="small muted">Time</span><b>About {{ app.job.estimated_minutes }} min</b></div>
+    <div class="card welcome-stat"><span class="small muted">Questions</span><b>{{ question_count }} + short follow-ups</b></div>
+    <div class="card welcome-stat"><span class="small muted">Format</span><b>Typed answers</b></div>
+  </div>
+
+  <div class="stack">
+    <section class="card" aria-labelledby="how">
+      <h2 id="how">How it works</h2>
+      <div class="stack mt-12">
+        <div class="step"><span class="num">1</span><p class="p">Questions appear one at a time. Read each one, type your answer in the box and press <strong>Submit answer</strong>.</p></div>
+        <div class="step"><span class="num">2</span><p class="p">Not sure what a question means? Press <strong>Ask for clarification</strong>. It doesn't count against you.</p></div>
+        <div class="step"><span class="num">3</span><p class="p">Your draft is saved on this device as you type. If you lose connection or close the tab, reopen the link from your email and continue where you left off.</p></div>
+        <div class="step"><span class="num">4</span><p class="p">There are no trick questions. Answer from your own experience; specific examples help most.</p></div>
+      </div>
+    </section>
+
+    <section class="card row-top" aria-labelledby="cam">
+      <span class="icon-tile">{{ m.icon('camoff', 22) }}</span>
+      <div><h2 id="cam" class="mb-8">Camera and microphone: off</h2><p class="p">This interview is text only. We don't use your camera or microphone and nothing is recorded except what you type.</p></div>
+    </section>
+
+    <section class="card" aria-labelledby="priv">
+      <h2 id="priv">Your data</h2>
+      <ul class="mt-8 p">
+        <li><strong>What we collect:</strong> your resume and the answers you type.</li>
+        <li><strong>Why:</strong> to prepare a summary for the recruiter reviewing your application.</li>
+        <li><strong>Who processes it:</strong> our recruiting team, and an AI service ({{ s.ai_processor_name }}) that drafts the summary.</li>
+        <li><strong>Who decides:</strong> a recruiter. The AI cannot reject your application.</li>
+        <li><strong>How long:</strong> {{ s.retention_days }} days, then deleted. You can ask for deletion sooner at <a href="mailto:{{ s.privacy_email }}">{{ s.privacy_email }}</a>.</li>
+      </ul>
+      <a class="back" href="/privacy" target="_blank" rel="noopener">Read the full privacy notice ↗</a>
+    </section>
+
+    <section class="card card-quiet" aria-labelledby="acc">
+      <h2 id="acc" class="mb-8">Need an adjustment?</h2>
+      <p class="p">If you need extra time, screen-reader support, a different format or anything else, email <a href="mailto:{{ s.accessibility_email }}">{{ s.accessibility_email }}</a> before starting.</p>
+    </section>
+
+    <form method="post" action="/interview/start" class="card card-strong stack" aria-label="Start">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% if error %}<div class="alert alert-error" role="alert">{{ m.icon('alert') }}<div>{{ error }}</div></div>{% endif %}
+      <label class="check p"><input type="checkbox" name="acknowledge" value="1" data-ack required><span>I've read the instructions and privacy information, and I agree that my answers can be processed as described.</span></label>
+      <div class="row">
+        <button class="btn btn-primary btn-lg" type="submit" data-start data-once>Start interview →</button>
+        <span class="small muted" data-ack-hint>Tick the box above to begin.</span>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/app.js?v=1" defer></script>{% endblock %}

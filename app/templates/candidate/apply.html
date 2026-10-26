@@ -1,0 +1,68 @@
+{% extends "candidate/_layout.html" %}
+{% import "_macros.html" as m %}
+{% block page_title %}{{ job.title }}{% endblock %}
+{% block body_class %}white{% endblock %}
+{% block content %}
+<div class="container-md page split split-apply">
+  <article class="jd main-col">
+    <a class="back" href="/jobs">← All roles</a>
+    <div class="small muted medium">{{ job.department or 'Role' }}{% if job.location %} · {{ job.location }}{% endif %} · {{ SENIORITY_LABELS.get(job.seniority, '') }}</div>
+    <h1 class="jd-title">{{ job.title }}</h1>
+    <a class="btn btn-primary mobile-only mt-16" href="#apply-h">Apply now</a>
+    <p class="desc">{{ job.description }}</p>
+    <h2>What you'll need</h2>
+    <ul>{% for c in job.essential_criteria %}<li>{{ c.name }}{% if c.description %} — {{ c.description }}{% endif %}</li>{% endfor %}</ul>
+    {% if job.preferred_criteria %}<h2>Nice to have</h2><ul><li>{{ job.preferred_criteria|join(' · ') }}</li></ul>{% endif %}
+    <h2>How we hire</h2>
+    <ol>
+      <li>A recruiter reviews your application.</li>
+      <li>If it's a match, we email you a link to a ~{{ job.estimated_minutes }} minute <strong>written</strong> interview you can take any time before the deadline. No camera or microphone.</li>
+      <li>A recruiter reads your answers and decides next steps. AI helps summarise; it never rejects anyone on its own.</li>
+    </ol>
+  </article>
+
+  <section class="apply-panel side-col" aria-labelledby="apply-h">
+    <h2 id="apply-h" class="apply-h">Apply</h2>
+    <p class="small muted mb-16">All fields are required.</p>
+    {% if errors.form %}<div class="alert alert-error mb-16" role="alert">{{ m.icon('alert') }}<div>{{ errors.form }}</div></div>{% endif %}
+    {% if errors %}<p class="sr-only" role="alert">There are {{ errors|length }} problems with the form.</p>{% endif %}
+    <form method="post" action="/jobs/{{ job.id }}/apply" enctype="multipart/form-data" class="stack" novalidate data-apply-form>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="field"><label class="label" for="name">Full name</label><input class="input{{ m.invalid(errors, 'name') }}" id="name" name="name" autocomplete="name" value="{{ form.name or '' }}" required>{{ m.field_error(errors, 'name') }}</div>
+      <div class="field"><label class="label" for="email">Email</label><input class="input{{ m.invalid(errors, 'email') }}" id="email" name="email" type="email" autocomplete="email" value="{{ form.email or '' }}" required>{{ m.field_error(errors, 'email') }}</div>
+      <div class="field">
+        <span class="label" id="cv-label">Resume</span>
+        {% if errors.resume and form.bad_file %}
+        <div class="file-err" role="alert">
+          <div class="row"><span class="tone-red">{{ m.icon('alert') }}</span><strong class="tone-red">We couldn't use this file</strong></div>
+          <p class="small mt-4"><span class="mono">{{ form.bad_file }}</span>: {{ errors.resume }}</p>
+        </div>
+        {% endif %}
+        <label class="dropzone{{ ' is-invalid' if errors.resume }}" for="resume" data-dropzone>
+          <span class="tone-ink">{{ m.icon('upload', 28) }}</span>
+          <span class="medium">{{ 'Choose another file' if form.bad_file else 'Choose a file or drag it here' }}</span>
+          <span class="small muted">PDF or DOCX · up to {{ '%g' % settings().max_upload_mb }} MB</span>
+          <input id="resume" name="resume" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" aria-describedby="cv-label{{ ' resume-error' if errors.resume and not form.bad_file }}" required>
+        </label>
+        <div class="file-ok" data-file-ok aria-live="polite">
+          <span class="tone-green">{{ m.icon('file', 24) }}</span>
+          <div class="grow"><div class="mono small" data-file-name></div><div class="small tone-green" data-file-size></div></div>
+          <button type="button" class="btn btn-secondary btn-sm" data-file-replace>Replace</button>
+        </div>
+        <p class="error-text" data-file-error hidden></p>
+        {% if errors.resume and not form.bad_file %}{{ m.field_error(errors, 'resume') }}{% endif %}
+      </div>
+      <fieldset class="stack-sm">
+        <legend class="label mb-8">Before you submit</legend>
+        <label class="check"><input type="checkbox" name="consent_privacy" value="1" {% if form.consent_privacy %}checked{% endif %}><span>I have read the <a href="/privacy" target="_blank" rel="noopener">privacy notice</a>, including how long my data is kept and how to ask for it to be deleted.</span></label>
+        {{ m.field_error(errors, 'consent_privacy') }}
+        <label class="check"><input type="checkbox" name="consent_ai" value="1" {% if form.consent_ai %}checked{% endif %}><span>I understand my resume and written interview answers are processed by an AI system to help a recruiter, who makes all decisions.</span></label>
+        {{ m.field_error(errors, 'consent_ai') }}
+      </fieldset>
+      <button class="btn btn-primary btn-lg btn-block" type="submit" data-once>Submit application</button>
+      <p class="xsmall muted">Need help applying or an adjustment to the process? Email <a href="mailto:{{ settings().accessibility_email }}">{{ settings().accessibility_email }}</a>.</p>
+    </form>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/app.js?v=1" defer></script>{% endblock %}

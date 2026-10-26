@@ -1,0 +1,119 @@
+{% extends "recruiter/_layout.html" %}
+{% import "_macros.html" as m %}
+{% block page_title %}Applications{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Applications</h1>
+    <p>Review resumes, send interview invitations and record your decision. AI output is advisory only.</p>
+  </div>
+  <div class="row">
+    {% set open_jobs = jobs|selectattr('status', 'equalto', 'open')|list %}
+    {% if open_jobs %}
+    <a class="btn btn-secondary" href="/recruiter/jobs/{{ (job_id or open_jobs[0].id) }}/applications/new">Add application</a>
+    {% endif %}
+    <a class="btn btn-primary" href="/recruiter/jobs/new">{{ m.icon('plus', 16) }}New job</a>
+  </div>
+</div>
+
+<section aria-label="Summary" class="grid-auto mb-24">
+  {% for s in stats %}
+  <div class="stat">
+    <div class="stat-label">{{ s.label }}</div>
+    <div class="stat-value"><b>{{ s.value }}</b><span>{{ s.note }}</span></div>
+  </div>
+  {% endfor %}
+</section>
+
+<div class="split">
+  <section aria-label="Applications list" class="card card-flush main-col">
+    <form class="toolbar" method="get" action="/recruiter" role="search">
+      <label class="sr-only" for="q">Search candidates</label>
+      <input id="q" name="q" class="input input-grow" type="search" placeholder="Search name or email" value="{{ q }}">
+      <label class="sr-only" for="jobf">Job</label>
+      <select id="jobf" name="job_id" class="select select-inline" data-autosubmit>
+        <option value="">All jobs</option>
+        {% for j in jobs %}<option value="{{ j.id }}" {% if job_id == j.id %}selected{% endif %}>{{ j.title }}{% if j.status != 'open' %} ({{ j.status }}){% endif %}</option>{% endfor %}
+      </select>
+      <label class="sr-only" for="stf">Stage</label>
+      <select id="stf" name="stage" class="select select-inline" data-autosubmit>
+        <option value="">Any stage</option>
+        {% for k, v in stages.items() %}<option value="{{ k }}" {% if stage == k %}selected{% endif %}>{{ v }}{% if k == 'attention' and attention_count %} ({{ attention_count }}){% endif %}</option>{% endfor %}
+      </select>
+      <button class="btn btn-secondary" type="submit">Filter</button>
+    </form>
+    {% if rows %}
+    <div class="table-wrap">
+      <table class="table table-min-900">
+        <thead>
+          <tr>
+            <th scope="col">Candidate</th>
+            <th scope="col">Resume</th>
+            <th scope="col">Invitation</th>
+            <th scope="col">Interview</th>
+            <th scope="col">AI recommendation <span class="faint">(advisory)</span></th>
+            <th scope="col">Your decision</th>
+            <th scope="col"><span class="sr-only">Action</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td>
+              <a class="medium nowrap" href="/recruiter/applications/{{ r.app.id }}">{{ r.app.candidate.name }}</a>
+              <div class="xsmall muted mt-4">{{ r.app.job.title }} · {{ r.app.created_at|date }}</div>
+            </td>
+            <td>{{ m.chip(r.parse[0], r.parse[1]) }}</td>
+            <td>{{ m.chip(r.invite[0], r.invite[1]) }}</td>
+            <td>{{ m.chip(r.interview[0], r.interview[1]) }}</td>
+            <td class="small">{{ r.ai }}</td>
+            <td>{{ m.chip(DECISION_LABELS[r.decision], 'outline' if r.decision == 'undecided' else ('red' if r.decision == 'decline' else ('amber' if r.decision == 'hold' else 'blue')), dot=False) }}</td>
+            <td class="right"><a class="rowlink" href="{{ r.href }}">{{ r.action }} →</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="table-foot">Showing {{ rows|length }} application{{ 's' if rows|length != 1 }}{% if q or job_id or stage %} matching your filters · <a href="/recruiter">Clear filters</a>{% endif %}</div>
+    {% else %}
+    <div class="empty">
+      {% if q or job_id or stage %}
+      <h3>No applications match these filters</h3>
+      <p><a href="/recruiter">Clear filters</a></p>
+      {% elif not jobs %}
+      <h3>Start by creating a job</h3>
+      <p class="mb-16">Define the role, essential criteria and rubric. Candidates apply from its public page.</p>
+      <a class="btn btn-primary" href="/recruiter/jobs/new">Create your first job</a>
+      {% else %}
+      <h3>No applications yet</h3>
+      <p>Share a job's public link, or add an application yourself.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+  </section>
+
+  <aside class="side-col" aria-label="Jobs">
+    <div class="card">
+      <div class="row-between mb-12">
+        <h2>Jobs</h2>
+        <a class="small medium" href="/recruiter/jobs">Manage</a>
+      </div>
+      {% for j in jobs[:6] %}
+      <a class="job-link" href="/recruiter?job_id={{ j.id }}">
+        <span class="medium">{{ j.title }}</span>
+        <span class="xsmall muted">{{ counts.get(j.id, 0) }} application{{ 's' if counts.get(j.id, 0) != 1 }} · Rubric v{{ j.rubric_version }} · {{ j.status|capitalize }}</span>
+      </a>
+      {% else %}
+      <p class="small muted">No jobs yet.</p>
+      {% endfor %}
+    </div>
+    {% if attention_count %}
+    <div class="card">
+      <h2 class="mb-8">Needs your attention</h2>
+      <p class="small muted mb-12">{{ attention_count }} application{{ 's' if attention_count != 1 }} with a failed file, email or report.</p>
+      <a class="btn btn-secondary btn-sm" href="/recruiter?stage=attention">Show them</a>
+    </div>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

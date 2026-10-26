@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{% block page_title %}{% endblock %} · {{ settings().product_name }}{% endblock %}
+{% block body %}
+<header class="topbar">
+  <div class="container topbar-inner">
+    <a class="brand" href="/recruiter">{{ m.logo() }}{{ settings().product_name }}</a>
+    <nav class="nav" aria-label="Main">
+      <a href="/recruiter" class="{{ 'on' if nav == 'applications' }}" {% if nav == 'applications' %}aria-current="page"{% endif %}>Applications</a>
+      <a href="/recruiter/jobs" class="{{ 'on' if nav == 'jobs' }}" {% if nav == 'jobs' %}aria-current="page"{% endif %}>Jobs</a>
+      <a href="/recruiter/outbox" class="{{ 'on' if nav == 'outbox' }}" {% if nav == 'outbox' %}aria-current="page"{% endif %}>Email log</a>
+      {% if user and user.is_admin %}
+      <a href="/recruiter/audit" class="{{ 'on' if nav == 'audit' }}" {% if nav == 'audit' %}aria-current="page"{% endif %}>Audit log</a>
+      <a href="/recruiter/users" class="{{ 'on' if nav == 'users' }}" {% if nav == 'users' %}aria-current="page"{% endif %}>Team</a>
+      {% endif %}
+    </nav>
+    <div class="topbar-right">
+      {% set badges = settings().mode_badges() %}
+      {% if badges %}<span class="chip chip-amber mode-chip" title="Configuration mode"><span class="dot" aria-hidden="true"></span>{{ badges|join(' · ') }}</span>{% endif %}
+      {% if user %}
+      <details class="usermenu">
+        <summary aria-label="Account menu for {{ user.name }}">{{ user.initials }}</summary>
+        <div class="menu">
+          <div class="who"><div class="medium">{{ user.name }}</div><div class="muted">{{ user.email }}</div></div>
+          <a href="/recruiter/account">Account &amp; password</a>
+          <a href="/jobs" target="_blank" rel="noopener">Public careers page ↗</a>
+          <form method="post" action="/logout"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">Sign out</button></form>
+        </div>
+      </details>
+      {% endif %}
+    </div>
+  </div>
+</header>
+<main id="main" class="page container">
+  {{ m.flashes(flashes) }}
+  {% block content %}{% endblock %}
+</main>
+{% endblock %}
+{% block scripts %}<script src="/static/js/app.js?v=1" defer></script>{% endblock %}

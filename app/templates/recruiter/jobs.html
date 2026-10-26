@@ -1,0 +1,42 @@
+{% extends "recruiter/_layout.html" %}
+{% import "_macros.html" as m %}
+{% block page_title %}Jobs{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Jobs</h1>
+    <p>Each job defines the criteria, rubric and core questions every candidate for it receives.</p>
+  </div>
+  <a class="btn btn-primary" href="/recruiter/jobs/new">{{ m.icon('plus', 16) }}New job</a>
+</div>
+<section class="card card-flush">
+  {% if jobs %}
+  <div class="table-wrap">
+    <table class="table table-min-760">
+      <thead><tr>
+        <th scope="col">Job</th><th scope="col">Status</th><th scope="col">Seniority</th><th scope="col">Criteria</th><th scope="col">Rubric</th><th scope="col">Applications</th><th scope="col"><span class="sr-only">Actions</span></th>
+      </tr></thead>
+      <tbody>
+        {% for j in jobs %}
+        <tr>
+          <td><a class="medium" href="/recruiter/jobs/{{ j.id }}">{{ j.title }}</a><div class="xsmall muted mt-4">{{ j.department or '—' }}{% if j.location %} · {{ j.location }}{% endif %}</div></td>
+          <td>{{ m.chip(j.status|capitalize, {'open':'green','draft':'neutral','closed':'outline'}[j.status]) }}</td>
+          <td class="small">{{ SENIORITY_LABELS.get(j.seniority, j.seniority) }}</td>
+          <td class="small">{{ j.essential_criteria|length }} essential · {{ j.core_questions_json|length }} questions</td>
+          <td class="small mono">v{{ j.rubric_version }}</td>
+          <td class="small"><a href="/recruiter?job_id={{ j.id }}">{{ counts.get(j.id, 0) }}</a></td>
+          <td class="right"><a class="rowlink" href="/recruiter/jobs/{{ j.id }}">Open →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">
+    <h3>No jobs yet</h3>
+    <p class="mb-16">Create a job to start collecting applications.</p>
+    <a class="btn btn-primary" href="/recruiter/jobs/new">Create a job</a>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

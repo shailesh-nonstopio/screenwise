@@ -1,0 +1,28 @@
+{% import "_macros.html" as m %}
+{% macro app_header(app, row, tab) %}
+<a class="back no-print" href="/recruiter{% if app.job_id %}?job_id={{ app.job_id }}{% endif %}">← Applications</a>
+<div class="row-between">
+  <div>
+    <div class="row">
+      <h1>{{ app.candidate.name }}</h1>
+      {% set d = app.latest_decision %}
+      {% if d and d.decision != 'undecided' %}{{ m.chip(DECISION_LABELS[d.decision], 'blue') }}{% elif row.attention %}{{ m.chip('Needs attention', 'red') }}{% else %}{{ m.chip({'new':'Needs review','invited':'Invited','interviewing':'Interview in progress','completed':'Ready for decision','decided':'Decided'}.get(app.status, app.status), 'neutral') }}{% endif %}
+    </div>
+    <p class="muted mt-4">{{ app.job.title }} · Applied {{ app.created_at|dt('%b %d, %Y') }} · {{ app.candidate.email }}</p>
+  </div>
+  <div class="row no-print">
+    {% if caller %}{{ caller() }}{% endif %}
+  </div>
+</div>
+{% set sess = app.latest_session %}
+<nav class="tabs no-print" aria-label="Application sections">
+  <a href="/recruiter/applications/{{ app.id }}" class="{{ 'on' if tab == 'overview' }}" {% if tab == 'overview' %}aria-current="page"{% endif %}>Overview</a>
+  <a href="/recruiter/applications/{{ app.id }}/invite" class="{{ 'on' if tab == 'invitations' }}" {% if tab == 'invitations' %}aria-current="page"{% endif %}>Invitations</a>
+  {% if sess %}
+  <a href="/recruiter/applications/{{ app.id }}/transcript" class="{{ 'on' if tab == 'transcript' }}" {% if tab == 'transcript' %}aria-current="page"{% endif %}>Transcript{% if sess.status != 'completed' %} · in progress{% endif %}</a>
+  {% else %}<span class="off" aria-disabled="true">Transcript · not started</span>{% endif %}
+  {% if sess and sess.status == 'completed' %}
+  <a href="/recruiter/applications/{{ app.id }}/report" class="{{ 'on' if tab == 'report' }}" {% if tab == 'report' %}aria-current="page"{% endif %}>Report</a>
+  {% else %}<span class="off" aria-disabled="true">Report · not available</span>{% endif %}
+</nav>
+{% endmacro %}

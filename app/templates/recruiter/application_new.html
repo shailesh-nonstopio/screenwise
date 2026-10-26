@@ -1,0 +1,28 @@
+{% extends "recruiter/_layout.html" %}
+{% import "_macros.html" as m %}
+{% block page_title %}Add application{% endblock %}
+{% block content %}
+<a class="back" href="/recruiter?job_id={{ job.id }}">← Applications</a>
+<div class="page-head"><div><h1>Add an application</h1><p>{{ job.title }} · Use this for resumes received by email or referral.</p></div></div>
+<div class="split">
+  <section class="card main-col">
+    {% if errors.form %}<div class="alert alert-error" role="alert">{{ m.icon('alert') }}<div>{{ errors.form }}</div></div>{% endif %}
+    <form method="post" action="/recruiter/jobs/{{ job.id }}/applications" enctype="multipart/form-data" class="stack" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-grid">
+        <div class="field"><label class="label" for="name">Candidate's full name</label><input class="input{{ m.invalid(errors, 'name') }}" id="name" name="name" value="{{ form.name or '' }}" autocomplete="off">{{ m.field_error(errors, 'name') }}</div>
+        <div class="field"><label class="label" for="email">Candidate's email</label><input class="input{{ m.invalid(errors, 'email') }}" id="email" name="email" type="email" value="{{ form.email or '' }}" autocomplete="off">{{ m.field_error(errors, 'email') }}</div>
+      </div>
+      <div class="field">
+        <label class="label" for="resume">Resume (PDF or DOCX, up to {{ '%g' % settings().max_upload_mb }} MB)</label>
+        <input class="input{{ m.invalid(errors, 'resume') }}" id="resume" name="resume" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+        {{ m.field_error(errors, 'resume') }}
+      </div>
+      <label class="check"><input type="checkbox" name="consent_confirmed" value="1" {% if form.consent_confirmed %}checked{% endif %}><span>The candidate has received the <a href="/privacy" target="_blank" rel="noopener">privacy notice</a> and knows an AI-assisted written interview may be used, with a recruiter making all decisions.</span></label>
+      {{ m.field_error(errors, 'consent_confirmed') }}
+      <div class="row"><button class="btn btn-primary" type="submit">Add and parse resume</button><a class="btn btn-secondary" href="/recruiter?job_id={{ job.id }}">Cancel</a></div>
+    </form>
+  </section>
+  <aside class="side-col"><div class="card card-quiet small"><h2 class="mb-8">What happens next</h2><p class="muted">The resume text is extracted and compared with this job's criteria. Nothing is sent to the candidate until you click Send invitation.</p></div></aside>
+</div>
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Interview · {{ app.job.title }}{% endblock %}
+{% block body %}
+<header class="chat-top">
+  <div class="chat-top-inner">
+    <div class="grow">
+      <div class="medium">{{ app.job.title }}</div>
+      <div class="small muted">{{ settings().company_name }} · Written interview</div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-meta"><span class="medium" data-progress-label>{% if state.all_answered %}All {{ state.progress.total }} questions answered{% else %}Question {{ state.progress.current }} of {{ state.progress.total }}{% endif %}</span><span class="muted" data-time-label>{% if state.all_answered %}Ready to submit{% else %}About {{ state.minutes_left }} min left{% endif %}</span></div>
+      <progress class="bar" max="{{ state.progress.total }}" value="{{ state.progress.answered }}" data-progress aria-label="Interview progress">{{ state.progress.answered }} of {{ state.progress.total }}</progress>
+    </div>
+    <div class="row">
+      <span class="pill chip-neutral">{{ m.icon('camoff', 14) }}Camera &amp; mic off</span>
+      <span class="pill chip-green" role="status" data-save-status>All changes saved</span>
+    </div>
+  </div>
+</header>
+<div class="offline" data-offline hidden role="alert">
+  <div class="offline-inner">{{ m.icon('wifi') }}<span><strong>You're offline.</strong> Your answer is saved on this device and will be sent when the connection returns. Don't close this tab.</span><button type="button" class="btn btn-secondary btn-sm right" data-retry>Retry now</button></div>
+</div>
+<main id="main" class="chat-main">
+  <section class="chat-shell" aria-label="Interview conversation">
+    <div class="chat-scroll" data-scroll>
+      <div class="chat-log" data-log aria-live="polite" aria-relevant="additions">
+        {% for msg in state.messages %}
+        {% if msg.role == 'candidate' %}
+        <div class="msg msg-me{{ ' msg-clar' if msg.kind == 'clarification_request' }}"><div class="meta">{{ msg.meta }}</div><div class="bubble">{{ msg.text }}</div></div>
+        {% else %}
+        <div class="msg{{ ' msg-clar' if msg.kind == 'clarification' }}"><div class="avatar-ai" aria-hidden="true">{{ m.icon('chat', 16) }}</div><div><div class="meta">{{ msg.meta }}</div><div class="bubble">{{ msg.text }}</div></div></div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+
+    <form class="composer" method="post" action="/interview/answer" data-composer {% if state.all_answered %}hidden{% endif %} novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" data-csrf>
+      <input type="hidden" name="client_msg_id" value="" data-client-id>
+      <input type="hidden" name="prompt_seq" value="{{ state.prompt_seq or '' }}" data-prompt-seq>
+      <label class="label" for="answer">Your answer</label>
+      <textarea class="textarea mt-8" id="answer" name="text" rows="4" maxlength="{{ max_chars }}" aria-describedby="answer-help answer-error" placeholder="Type your answer here. Specific examples from your own work help most."></textarea>
+      <div class="composer-meta" id="answer-help"><span>Your draft saves on this device. You can edit until you submit.</span><span class="mono"><span data-count>0</span> / {{ max_chars }}</span></div>
+      <p class="error-text mt-8" id="answer-error" data-error role="alert" {% if not error %}hidden{% endif %}>{{ error or '' }}</p>
+      <div class="composer-actions">
+        <button type="submit" class="btn btn-secondary" formaction="/interview/clarify" data-clarify>Ask for clarification</button>
+        <button type="submit" class="btn btn-primary" data-submit>Submit answer →</button>
+      </div>
+    </form>
+    <form class="finish-bar" method="post" action="/interview/complete" data-finish {% if not state.all_answered %}hidden{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <span>That was the last question. Submit to lock your answers and finish.</span>
+      <button class="btn btn-primary" type="submit" data-once>Finish and submit interview</button>
+    </form>
+  </section>
+
+  <aside class="chat-aside">
+    <div class="card">
+      <h2 class="mb-8">Tips</h2>
+      <ul class="small p">
+        <li>Say what <em>you</em> did, why, and what changed.</li>
+        <li>A few clear paragraphs is plenty.</li>
+        <li>You can edit your answer until you press Submit.</li>
+        <li>Asking for clarification is fine.</li>
+      </ul>
+    </div>
+    <div class="card small p">
+      <h2 class="mb-8">Need a break?</h2>
+      Your progress is saved. Close this tab and reopen your email link any time before {{ inv.expires_at|dt('%b %d, %H:%M') }}.
+    </div>
+    <details class="end-early" {% if state.all_answered %}hidden{% endif %} data-end-early>
+      <summary>End interview early</summary>
+      <form method="post" action="/interview/complete" class="card stack-sm mt-8">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="end_early" value="1">
+        <p class="small">Your answers so far will be submitted and locked. Unanswered questions will be marked as not assessed.</p>
+        <button class="btn btn-danger btn-sm" type="submit">Submit what I have</button>
+      </form>
+    </details>
+    <a class="small" href="mailto:{{ settings().support_email }}?subject=Interview%20problem%20{{ isession.reference_code }}">Report a problem</a>
+  </aside>
+</main>
+<script type="application/json" id="initial-state">{{ state_json|safe }}</script>
+{% endblock %}
+{% block scripts %}<script src="/static/js/chat.js?v=1" defer></script>{% endblock %}

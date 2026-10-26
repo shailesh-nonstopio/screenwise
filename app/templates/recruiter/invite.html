@@ -1,0 +1,99 @@
+{% extends "recruiter/_layout.html" %}
+{% import "_macros.html" as m %}
+{% from "recruiter/_app_header.html" import app_header %}
+{% block page_title %}Invitation · {{ app.candidate.name }}{% endblock %}
+{% block content %}
+{{ app_header(app, row, tab) }}
+{% set mode = settings().email_backend %}
+
+{% if dev_link %}
+<div class="alert alert-warning mb-24" role="status">{{ m.icon('alert') }}
+  <div><strong>Link created; email not sent (dry-run mode).</strong> This is the only time the link is shown. Copy it if you want to send it yourself or test the candidate flow.
+    <div class="devlink"><code id="dev-link">{{ dev_link }}</code><button type="button" class="btn btn-secondary btn-sm" data-copy="#dev-link">Copy</button><a class="btn btn-ghost btn-sm" href="{{ dev_link }}" target="_blank" rel="noopener">Open as candidate ↗</a></div>
+  </div>
+</div>
+{% elif mode == 'dryrun' %}
+<div class="alert alert-warning mb-24" role="note">{{ m.icon('alert') }}<div><strong>Dry-run mode.</strong> No email will be sent. The message is logged so you can check it, and the invitation will show as “Logged (not sent)”. Set <span class="mono">EMAIL_BACKEND</span> to <span class="mono">smtp</span> or <span class="mono">resend</span> to send for real.</div></div>
+{% endif %}
+
+<div class="split">
+  <div class="left-col">
+    <section class="card" aria-labelledby="s-set">
+      {% set completed = app.latest_session and app.latest_session.status == 'completed' %}
+      <h2 id="s-set">{{ 'Send a new link' if active_inv else 'Send interview invitation' }}</h2>
+      <p class="card-sub">Each link is personal, hard to guess, expires, and is stored only as a keyed hash.</p>
+      {% if completed %}
+      <p class="small muted">This candidate has completed the interview. No further invitations are needed.</p>
+      {% elif app.parse_status != 'parsed' %}
+      <p class="small tone-red">The resume couldn't be read, so an interview can't be planned yet.</p>
+      {% else %}
+      <form method="post" action="/recruiter/applications/{{ app.id }}/invite" class="stack" id="invite-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {% if active_inv %}<input type="hidden" name="replace" value="1">{% endif %}
+        <div class="field"><span class="label">To</span><div class="input mono small">{{ app.candidate.email }}</div></div>
+        <div class="field"><label class="label" for="valid_days">Link valid for</label>
+          <select class="select" id="valid_days" name="valid_days" data-preview-param="days">
+            {% for d in [2, 3, 5, 7, 10, 14] %}<option value="{{ d }}" {% if d == default_days %}selected{% endif %}>{{ d }} days</option>{% endfor %}
+          </select></div>
+        <div class="field"><label class="label" for="note">Personal note <span class="faint">(optional, shown above the instructions)</span></label>
+          <textarea class="textarea" id="note" name="note" rows="3" maxlength="1000" data-preview-param="note"></textarea></div>
+        {% if not app.plan_approved_at %}<p class="small muted">Sending also approves the current <a href="/recruiter/applications/{{ app.id }}#plan">interview plan</a>.</p>{% endif %}
+        {% if active_inv %}<p class="small tone-amber">The current link will stop working. If the candidate already started, they continue where they left off.</p>{% endif %}
+        <div class="row">
+          <button class="btn btn-primary" type="submit" data-once>{{ m.icon('mail', 16) }}{% if mode == 'dryrun' %}Create link &amp; log email (dry run){% elif active_inv %}Send new link{% else %}Send invitation{% endif %}</button>
+          <a class="btn btn-secondary" href="/recruiter/applications/{{ app.id }}">Cancel</a>
+        </div>
+      </form>
+      {% endif %}
+    </section>
+
+    <section class="card" aria-labelledby="s-hist">
+      <h2 id="s-hist">Invitations and delivery</h2>
+      <p class="card-sub">Every attempt is recorded. Links are never shown or logged after creation.</p>
+      {% if app.invitations %}
+      <div class="table-wrap">
+        <table class="table compact">
+          <thead><tr><th scope="col">Created</th><th scope="col">Delivery</th><th scope="col">State</th></tr></thead>
+          <tbody>
+            {% for inv in app.invitations %}
+            <tr>
+              <td class="small"><span class="nowrap">{{ inv.created_at|dt('%b %d, %H:%M') }}</span><div class="xsmall muted mono">…{{ inv.token_hint }}</div></td>
+              <td>{{ m.chip({'logged_not_sent':'Logged (not sent)','sent':'Sent','failed':'Failed','pending':'Pending'}[inv.delivery_status], {'logged_not_sent':'amber','sent':'green','failed':'red','pending':'neutral'}[inv.delivery_status]) }}{% if inv.last_error %}<div class="xsmall tone-red mt-4">{{ inv.last_error }}</div>{% endif %}</td>
+              <td class="small">{% if inv.revoked_at %}Revoked{% if inv.revoked_reason == 'replaced' %} (replaced){% endif %}{% elif inv.is_expired %}Expired {{ inv.expires_at|date }}{% else %}Active until {{ inv.expires_at|dt('%b %d, %H:%M') }}{% if inv.opened_at %}<div class="xsmall muted">Opened {{ inv.opened_at|dt('%b %d, %H:%M') }}</div>{% endif %}{% endif %}
+              {% if inv.is_active %}
+                <form method="post" action="/recruiter/invitations/{{ inv.id }}/revoke" data-confirm="Revoke this link? The candidate won't be able to use it.">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-danger btn-sm mt-8" type="submit">Revoke</button>
+                </form>{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}<p class="small muted">No invitations yet.</p>{% endif %}
+    </section>
+  </div>
+
+  <section class="main-col" aria-labelledby="s-prev">
+    <div class="row-between"><h2 id="s-prev">Email preview</h2><span class="small muted">The real link is created when you send.</span></div>
+    <div class="card card-flush">
+      <div class="email-head">
+        <span class="muted">From</span><span>{{ settings().email_from }}</span>
+        <span class="muted">To</span><span>{{ app.candidate.email }}</span>
+        <span class="muted">Subject</span><span class="medium">Your written interview for {{ app.job.title }}</span>
+      </div>
+      <iframe class="email-frame" id="email-preview" title="Invitation email preview" sandbox src="/recruiter/applications/{{ app.id }}/invite/preview?days={{ default_days }}" data-base="/recruiter/applications/{{ app.id }}/invite/preview"></iframe>
+    </div>
+    {% if app.emails %}
+    <details class="card mt-16">
+      <summary class="medium">Logged emails for this candidate ({{ app.emails|length }})</summary>
+      <div class="stack mt-12">
+        {% for e in app.emails %}
+        <div class="box small"><div class="row-between"><span class="medium">{{ e.subject }}</span>{{ m.chip({'logged_not_sent':'Logged (not sent)','sent':'Sent','failed':'Failed'}.get(e.status, e.status), {'logged_not_sent':'amber','sent':'green','failed':'red'}.get(e.status, 'neutral')) }}</div>
+          <div class="xsmall muted mt-4">{{ e.created_at|dt }} · {{ e.backend }}{% if e.error %} · {{ e.error }}{% endif %}</div></div>
+        {% endfor %}
+      </div>
+    </details>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

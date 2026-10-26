@@ -1,0 +1,39 @@
+{% extends "recruiter/_layout.html" %}
+{% import "_macros.html" as m %}
+{% from "recruiter/_app_header.html" import app_header %}
+{% block page_title %}Transcript · {{ app.candidate.name }}{% endblock %}
+{% block content %}
+{{ app_header(app, row, tab) }}
+<div class="split">
+  <section class="card main-col" aria-labelledby="s-t">
+    <div class="row-between mb-16">
+      <div>
+        <h2 id="s-t">Transcript</h2>
+        <p class="card-sub">{{ msgs|length }} messages · started {{ isession.started_at|dt }}{% if isession.completed_at %} · submitted {{ isession.completed_at|dt }}{% endif %}</p>
+      </div>
+      {% if isession.status == 'completed' %}{{ m.chip('Locked', 'green') }}{% else %}{{ m.chip('In progress', 'amber') }}{% endif %}
+    </div>
+    <div>
+      {% for item in msgs %}{% set msg = item.m %}
+      <div class="tmsg {{ 'cand' if msg.role == 'candidate' else 'int' }}" {% if msg.kind == 'question' %}id="q{{ msg.question_index + 1 }}"{% endif %}>
+        <div class="who"><b>{{ 'Candidate' if msg.role == 'candidate' else 'Interviewer' }}</b>{{ item.meta }}<br><span class="faint">{{ msg.created_at|dt('%H:%M') }}</span></div>
+        <div class="body">{{ msg.content }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  <aside class="side-col">
+    <div class="card small">
+      <h2 class="mb-12">Session</h2>
+      <dl class="kv">
+        <dt>Reference</dt><dd class="mono">{{ isession.reference_code }}</dd>
+        <dt>Rubric</dt><dd>v{{ isession.rubric_version }}</dd>
+        <dt>Progress</dt><dd>{{ [isession.current_index, isession.plan_json.questions|length]|min }} of {{ isession.plan_json.questions|length }} answered</dd>
+        <dt>Follow-ups</dt><dd>{{ isession.followups_used }}</dd>
+        {% if isession.ended_early %}<dt>Ended</dt><dd class="tone-amber">Early, by the candidate</dd>{% endif %}
+        {% if isession.transcript_hash %}<dt>Integrity</dt><dd class="mono xsmall prewrap">sha256 {{ isession.transcript_hash[:16] }}…</dd>{% endif %}
+      </dl>
+    </div>
+  </aside>
+</div>
+{% endblock %}

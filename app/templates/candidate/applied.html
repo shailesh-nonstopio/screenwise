@@ -1,0 +1,13 @@
+{% extends "candidate/_layout.html" %}
+{% import "_macros.html" as m %}
+{% block page_title %}Application received{% endblock %}
+{% block content %}
+<div class="container-xs page">
+  <section class="state-card">
+    <svg class="big-check" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="28" fill="#E7F4EC"/><path d="M18 28.5l6.5 6.5L38 21.5" stroke="#1E6B43" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <h1>Thanks — your application is in</h1>
+    <p class="p">We've received your application for <strong>{{ job.title }}</strong>. A recruiter will review it. If there's a match, you'll get an email with a link to a short written interview.</p>
+    <p class="small muted">Questions or want your data deleted? Email <a href="mailto:{{ settings().support_email }}">{{ settings().support_email }}</a>.</p>
+  </section>
+</div>
+{% endblock %}

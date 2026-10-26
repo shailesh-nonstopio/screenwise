@@ -1,0 +1,28 @@
+{% extends "candidate/_layout.html" %}
+{% import "_macros.html" as m %}
+{% block page_title %}Interview submitted{% endblock %}
+{% block brand_suffix %}{% endblock %}
+{% block header_container %}container-xs{% endblock %}
+{% block header_right %}{% endblock %}
+{% block content %}
+{% set s = settings() %}
+<div class="container-xs page">
+  <section class="state-card">
+    <svg class="big-check" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="28" fill="#E7F4EC"/><path d="M18 28.5l6.5 6.5L38 21.5" stroke="#1E6B43" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <h1>Thank you, {{ app.candidate.name.split()[0] }}. Your interview is submitted.</h1>
+    <p class="p">We've saved your answers for the {{ app.job.title }} role. You don't need to do anything else, and you can close this page.</p>
+    <dl class="kv box-quiet">
+      <dt>Submitted</dt><dd>{{ isession.completed_at|dt }}</dd>
+      <dt>Reference</dt><dd class="mono">{{ isession.reference_code }}</dd>
+      <dt>Answers</dt><dd>Locked. They can't be changed now.</dd>
+    </dl>
+    <h2>What happens next</h2>
+    <ol class="p">
+      <li>An AI tool prepares a summary of your answers for the recruiting team.</li>
+      <li>A recruiter reads your answers and that summary, and decides the next step. The AI does not make that decision.</li>
+      <li>We'll email you within {{ s.response_days }} either way.</li>
+    </ol>
+    <p class="small muted">Questions, or want a copy of your answers or your data deleted? Email <a href="mailto:{{ s.support_email }}">{{ s.support_email }}</a> and quote your reference.</p>
+  </section>
+</div>
+{% endblock %}

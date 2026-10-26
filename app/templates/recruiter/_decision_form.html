@@ -1,0 +1,22 @@
+{% set current = app.latest_decision %}
+<form method="post" action="/recruiter/applications/{{ app.id }}/decision" class="stack-sm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="return_to" value="{{ tab }}">
+  <fieldset class="stack-sm">
+    <legend class="sr-only">Decision</legend>
+    {% for key in ['advance', 'hold', 'decline', 'undecided'] %}
+    <label class="opt"><input type="radio" name="decision" value="{{ key }}" {% if (current and current.decision == key) or (not current and key == 'undecided') %}checked{% endif %}>{{ DECISION_LABELS[key] }}</label>
+    {% endfor %}
+  </fieldset>
+  <label class="label mt-8" for="notes-{{ app.id }}">Notes <span class="faint">(visible to recruiters only)</span></label>
+  <textarea class="textarea" id="notes-{{ app.id }}" name="notes" rows="4" maxlength="5000" placeholder="e.g. Advance to technical round; ask about migration scope.">{{ current.notes if current else '' }}</textarea>
+  <button class="btn btn-primary btn-block mt-8" type="submit">Save decision</button>
+  {% if current %}
+  <p class="small tone-green" role="status">Current: {{ DECISION_LABELS[current.decision] }} · by {{ current.recruiter.name if current.recruiter else 'a former user' }} · {{ current.created_at|dt }}</p>
+  {% endif %}
+  {% if app.decisions|length > 1 %}
+  <details class="small mt-8"><summary class="muted">Decision history ({{ app.decisions|length }})</summary>
+    <ul class="mt-8">{% for d in app.decisions %}<li class="li">{{ d.created_at|dt }} — {{ DECISION_LABELS[d.decision] }} ({{ d.recruiter.name if d.recruiter else '—' }}){% if d.notes %}: <span class="muted">{{ d.notes|truncate(120) }}</span>{% endif %}</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+</form>

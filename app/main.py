@@ -1,0 +1,171 @@
+"""FastAPI application entrypoint (also the Vercel entrypoint: ``app/main.py`` exposes ``app``)."""
+
+from __future__ import annotations
+
+import logging
+import secrets
+import time
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
+
+from app.config import settings
+from app.logging_config import configure_logging, redact
+from app.security import LoginRequired
+
+log = logging.getLogger("app")
+
+CSP = (
+    "default-src 'self'; "
+    "script-src 'self'; "
+    "style-src 'self' https://fonts.googleapis.com; "
+    "font-src 'self' https://fonts.gstatic.com; "
+    "img-src 'self' data:; "
+    "connect-src 'self'; "
+    "form-action 'self'; "
+    "frame-src 'self'; "
+    "frame-ancestors 'none'; "
+    "base-uri 'none'; "
+    "object-src 'none'"
+)
+
+
+def _bootstrap() -> None:
+    from app.database import db_session
+    from app.services.bootstrap import ensure_admin, run_migrations
+
+    s = settings()
+    if s.auto_migrate:
+        run_migrations()
+    if s.bootstrap_admin_email and s.bootstrap_admin_password:
+        with db_session() as db:
+            ensure_admin(db, s.bootstrap_admin_email, s.bootstrap_admin_password)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    s = settings()
+    configure_logging(s.log_level)
+    problems = s.startup_problems()
+    if problems:
+        for p in problems:
+            log.error("configuration problem: %s", p)
+        raise RuntimeError("Refusing to start with insecure production configuration: " + " ".join(problems))
+    try:
+        _bootstrap()
+    except Exception:  # noqa: BLE001 - surface clearly but keep the error page reachable
+        log.exception("startup bootstrap failed")
+    yield
+
+
+def create_app() -> FastAPI:
+    s = settings()
+    app = FastAPI(
+        title=s.product_name,
+        lifespan=lifespan,
+        docs_url=None if s.is_production else "/docs",
+        redoc_url=None,
+        openapi_url=None if s.is_production else "/openapi.json",
+    )
+
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):
+        start = time.perf_counter()
+        request.state.request_id = secrets.token_hex(6)
+        response = await call_next(request)
+        h = response.headers
+        h.setdefault("Content-Security-Policy", CSP)
+        h.setdefault("X-Content-Type-Options", "nosniff")
+        h.setdefault("X-Frame-Options", "DENY")
+        h.setdefault("Referrer-Policy", "no-referrer")
+        h.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+        h.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+        if settings().cookie_secure:
+            h.setdefault("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+        path = request.url.path
+        if path.startswith(("/recruiter", "/interview", "/login")):
+            h.setdefault("Cache-Control", "no-store")
+        if not path.startswith("/static"):
+            log.info(
+                "request",
+                extra={"safe": {
+                    "rid": request.state.request_id, "method": request.method, "path": redact(path),
+                    "status": response.status_code, "ms": round((time.perf_counter() - start) * 1000),
+                }},
+            )
+        return response
+
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=s.secret_key,
+        session_cookie="sw_session",
+        max_age=s.session_max_age_hours * 3600,
+        same_site="lax",
+        https_only=s.cookie_secure,
+    )
+
+    @app.exception_handler(LoginRequired)
+    async def _login_required(request: Request, exc: LoginRequired):
+        from urllib.parse import quote
+
+        return RedirectResponse(f"/login?next={quote(exc.next_url)}", status_code=303)
+
+    def _wants_json(request: Request) -> bool:
+        return "application/json" in request.headers.get("accept", "") or request.headers.get("content-type", "").startswith("application/json")
+
+    @app.exception_handler(HTTPException)
+    async def _http_error(request: Request, exc: HTTPException):
+        from app.templating import render
+
+        if _wants_json(request):
+            return JSONResponse({"error": exc.detail}, status_code=exc.status_code, headers=exc.headers)
+        titles = {403: "Not allowed", 404: "Page not found", 429: "Slow down", 409: "Already done"}
+        return render(request, "error.html", {"title": titles.get(exc.status_code, "Something went wrong"), "detail": exc.detail, "code": exc.status_code}, status_code=exc.status_code)
+
+    @app.exception_handler(404)
+    async def _not_found(request: Request, exc: Exception):
+        from app.templating import render
+
+        if _wants_json(request):
+            return JSONResponse({"error": "Not found"}, status_code=404)
+        detail = getattr(exc, "detail", None)
+        if not isinstance(detail, str) or detail == "Not Found":
+            detail = "We couldn't find that page. Check the address, or go back and try again."
+        return render(request, "error.html", {"title": "Page not found", "detail": detail, "code": 404}, status_code=404)
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation(request: Request, exc: RequestValidationError):
+        from app.templating import render
+
+        if _wants_json(request):
+            return JSONResponse({"error": "Some fields were missing or invalid."}, status_code=422)
+        return render(request, "error.html", {"title": "Missing information", "detail": "Some fields were missing or invalid. Go back and check the form.", "code": 422}, status_code=422)
+
+    @app.exception_handler(Exception)
+    async def _unhandled(request: Request, exc: Exception):
+        from app.templating import render
+
+        log.exception("unhandled error", extra={"safe": {"rid": getattr(request.state, "request_id", ""), "path": redact(request.url.path)}})
+        if _wants_json(request):
+            return JSONResponse({"error": "Something went wrong on our side. Your work is saved; please try again."}, status_code=500)
+        return render(request, "error.html", {"title": "Something went wrong", "detail": "An unexpected error occurred on our side. Please try again in a moment.", "code": 500}, status_code=500)
+
+    from app.routers import auth, interview, public, recruiter, system
+
+    app.include_router(system.router)
+    app.include_router(auth.router)
+    app.include_router(public.router)
+    app.include_router(interview.router)
+    app.include_router(recruiter.router)
+
+    static_dir = Path(__file__).parent / "static"
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    return app
+
+
+app = create_app()

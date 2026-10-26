@@ -1,0 +1,5 @@
+tests/
+var/
+*.db
+.venv/
+.pytest_cache/

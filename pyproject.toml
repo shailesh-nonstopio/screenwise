@@ -1,0 +1,38 @@
+[project]
+name = "screenwise"
+version = "1.0.0"
+description = "AI-assisted pre-screening interviews with evidence-based recruiter review"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115,<1.0",
+    "uvicorn[standard]>=0.30",
+    "jinja2>=3.1.4",
+    "python-multipart>=0.0.9",
+    "itsdangerous>=2.2",
+    "sqlalchemy>=2.0.30,<2.2",
+    "alembic>=1.13",
+    "psycopg[binary]>=3.2",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.4",
+    "argon2-cffi>=23.1",
+    "httpx>=0.27",
+    "pypdf>=4.3",
+    "python-docx>=1.1",
+    "tzdata>=2024.1",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+# --- Vercel -------------------------------------------------------------------------------
+[tool.vercel]
+entrypoint = "app.main:app"
+
+[tool.vercel.scripts]
+# Applies migrations during the build when RUN_MIGRATIONS_ON_BUILD=1 is set for that environment.
+build = "python -m app.cli build"
+
+[tool.vercel.fastapi.static]
+# Serve /static from the CDN even though the app has middleware.
+cdn = true

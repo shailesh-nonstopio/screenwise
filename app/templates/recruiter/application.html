@@ -1,0 +1,153 @@
+{% extends "recruiter/_layout.html" %}
+{% import "_macros.html" as m %}
+{% from "recruiter/_app_header.html" import app_header %}
+{% block page_title %}{{ app.candidate.name }}{% endblock %}
+{% block content %}
+{% call app_header(app, row, tab) %}
+  {% if app.latest_session and app.latest_session.status == 'completed' %}
+  <a class="btn btn-primary" href="/recruiter/applications/{{ app.id }}/report">View report</a>
+  {% else %}
+  <a class="btn btn-primary" href="/recruiter/applications/{{ app.id }}/invite">{{ m.icon('mail', 16) }}{{ 'Manage invitation' if active_inv else 'Send invitation' }}</a>
+  {% endif %}
+{% endcall %}
+
+{% set parsed = app.parsed_resume_json %}
+<div class="split">
+  <div class="left-col">
+    <section class="card" aria-labelledby="s-file">
+      <div class="row-between">
+        <div>
+          <h2 id="s-file">Resume</h2>
+          <p class="card-sub"><span class="mono small">{{ app.resume_filename }}</span> · {{ (app.resume_size / 1024)|round|int }} KB</p>
+        </div>
+        <div class="row">
+          {{ m.chip('Text extracted', 'green') if app.parse_status == 'parsed' else m.chip('Could not read', 'red') }}
+          {% if app.resume_file_key %}<a class="btn btn-ghost btn-sm" href="/recruiter/applications/{{ app.id }}/resume">Download</a>{% endif %}
+        </div>
+      </div>
+      <div class="resume-text" tabindex="0" aria-label="Extracted resume text with line references">
+        {% for ln in parsed.get('lines', []) %}
+        <p id="{{ ln.ref|lower|replace('-', '') }}"><span class="ref-tag">{{ ln.ref }}</span><span>{{ ln.text }}</span></p>
+        {% else %}<p class="muted">No text available.</p>{% endfor %}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="s-facts">
+      <div class="row-between">
+        <div>
+          <h2 id="s-facts">Extracted facts</h2>
+          <p class="card-sub">Anything the parser could not confirm is marked, not guessed. Source: {{ 'AI parser' if parsed.get('source') == 'llm' else 'rule-based parser' }}.</p>
+        </div>
+        <form method="post" action="/recruiter/applications/{{ app.id }}/reanalyse" data-confirm="Re-run parsing and rebuild the interview plan? Edits to the plan will be lost.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="btn btn-ghost btn-sm" type="submit">Re-analyse</button>
+        </form>
+      </div>
+      <dl class="kv">
+        <dt>Listed experience</dt>
+        <dd>{% set ex = parsed.get('experience_years') %}
+          {% if ex %}≈ {{ '%g' % ex.min }}{% if ex.max != ex.min %} – {{ '%g' % ex.max }}{% endif %} years {% if not ex.certain %}{{ m.chip('Some dates approximate', 'amber') }}{% endif %}<div class="xsmall muted mt-4">{{ ex.note }}</div>
+          {% else %}<span class="muted">Unknown</span>{% endif %}</dd>
+        <dt>Roles</dt>
+        <dd>{% for r in parsed.get('roles', [])[:6] %}<div class="mb-8"><span class="medium">{{ r.title }}</span>{% if r.organization %}, {{ r.organization }}{% endif %} <span class="muted small">({{ r.start or '?' }} – {{ r.end or '?' }})</span> {% if r.ref %}<a class="ref" href="#{{ r.ref|lower|replace('-', '') }}">{{ r.ref }}</a>{% endif %}{% if r.uncertain_note %}<div class="xsmall tone-amber">{{ r.uncertain_note }}</div>{% endif %}</div>{% else %}<span class="muted">Not found</span>{% endfor %}</dd>
+        <dt>Skills</dt>
+        <dd>{% if parsed.get('skills') %}<div class="row">{% for s in parsed.skills[:30] %}{{ m.chip(s, 'outline', dot=False) }}{% endfor %}</div>{% else %}<span class="muted">None recognised</span>{% endif %}</dd>
+        <dt>Education</dt>
+        <dd>{% for e in parsed.get('education', [])[:4] %}<div>{{ e.text }}{% if not e.year %} <span class="muted small">· year unknown</span>{% endif %}</div>{% else %}<span class="muted">Unknown</span>{% endfor %}</dd>
+        {% if parsed.get('achievements') %}<dt>Achievements</dt><dd>{% for a in parsed.achievements[:4] %}<div class="small mb-8">{{ a.text }} {% if a.ref %}<a class="ref" href="#{{ a.ref|lower|replace('-', '') }}">{{ a.ref }}</a>{% endif %}</div>{% endfor %}</dd>{% endif %}
+        {% if parsed.get('unknowns') %}<dt>Unknown / unclear</dt><dd>{% for u in parsed.unknowns %}<div class="small tone-amber">{{ u }}</div>{% endfor %}</dd>{% endif %}
+      </dl>
+    </section>
+  </div>
+
+  <div class="main-col">
+    <section class="card" aria-labelledby="s-match">
+      <h2 id="s-match">Resume vs essential criteria</h2>
+      <p class="card-sub">What the resume shows before the interview (keyword overlap, not a score). Gaps become interview questions, not rejections.</p>
+      <div>
+        {% for c in app.match_json.get('criteria', []) %}
+        <div class="crit-row">
+          <div class="grow">
+            <div class="medium">{{ c.name }}</div>
+            <div class="small mt-4 tone-ink">{{ c.evidence }}</div>
+          </div>
+          <div>{{ m.chip(c.status_label, {'evidence':'green','partial':'amber','not_found':'neutral'}[c.status]) }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% if app.match_json.get('preferred') %}
+      <div class="row mt-16"><span class="small muted">Preferred:</span>{% for p in app.match_json.preferred %}{{ m.chip(p.name, 'green' if p.found else 'outline', dot=p.found) }}{% endfor %}</div>
+      {% endif %}
+    </section>
+
+    <section class="card" id="plan" aria-labelledby="s-plan">
+      {% set plan = app.plan_json %}
+      <div class="row-between">
+        <div>
+          <h2 id="s-plan">Interview plan</h2>
+          <p class="card-sub">{{ plan.get('questions', [])|length }} questions: one tailored to this resume, the job's core set, and a closing question. Up to {{ plan.get('max_followups', 3) }} follow-ups are added live when answers need clarifying.</p>
+        </div>
+        <div class="row">
+          {{ m.chip('Approved' if app.plan_approved_at else 'Draft', 'green' if app.plan_approved_at else 'violet', dot=False) }}
+          {{ m.chip('Rubric v%s' % plan.get('rubric_version', '?'), 'neutral', dot=False) }}
+        </div>
+      </div>
+      {% if rubric_outdated %}
+      <div class="alert alert-warning mb-16">{{ m.icon('alert') }}<div>This plan uses rubric v{{ plan.get('rubric_version') }} but the job is now on v{{ app.job.rubric_version }}.
+        <form method="post" action="/recruiter/applications/{{ app.id }}/plan/regenerate" class="mt-8"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-secondary btn-sm" type="submit">Rebuild plan from v{{ app.job.rubric_version }}</button></form></div></div>
+      {% endif %}
+      <div class="band"><strong class="tone-ink">Depth band:</strong> {{ plan.get('band', {}).get('label', 'Unknown') }} — {{ plan.get('band', {}).get('focus', '') }}<span class="muted">· Experience is one signal; difficulty only rises if answers support it.</span></div>
+      {% set locked = app.latest_session is not none %}
+      <form method="post" action="/recruiter/applications/{{ app.id }}/plan">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <ol class="qlist">
+          {% for q in plan.get('questions', []) %}
+          <li class="qitem">
+            <span class="qnum">{{ q.number }}</span>
+            <div class="grow stack-sm">
+              {% if locked %}<p>{{ q.text }}</p>{% else %}
+              <label class="sr-only" for="q-{{ q.index }}-text">Question {{ q.number }}</label>
+              <textarea class="textarea" id="q-{{ q.index }}-text" name="q-{{ q.index }}-text" rows="2" maxlength="600">{{ q.text }}</textarea>{% endif %}
+              <div class="row">
+                {{ m.chip(q.category_label, 'blue', dot=False) }}
+                {{ m.chip((q.source_ref ~ ' · ' if q.source_ref else '') ~ q.target, 'neutral', dot=False) }}
+              </div>
+            </div>
+          </li>
+          {% endfor %}
+        </ol>
+        {% if locked %}
+        <p class="small muted mt-16">The interview has started, so this plan is locked. The exact version used is stored with the transcript.</p>
+        {% else %}
+        <div class="row mt-16 right-actions">
+          <button class="btn btn-secondary" type="submit" name="action" value="save">Save wording</button>
+          <button class="btn btn-primary" type="submit" name="action" value="approve">Approve plan &amp; continue to invitation</button>
+        </div>
+        {% endif %}
+      </form>
+      {% if not locked %}
+      <form method="post" action="/recruiter/applications/{{ app.id }}/plan/regenerate" class="mt-8" data-confirm="Rebuild the plan? Your wording edits will be lost.">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-ghost btn-sm" type="submit">Rebuild plan</button>
+      </form>
+      {% endif %}
+    </section>
+
+    <section class="card" id="decision" aria-labelledby="s-dec">
+      <h2 id="s-dec">Your decision</h2>
+      <p class="card-sub">You can record a decision at any stage. It is stored separately from any AI recommendation.</p>
+      {% include "recruiter/_decision_form.html" %}
+    </section>
+
+    <section class="card danger-zone" id="danger" aria-labelledby="s-del">
+      <h2 id="s-del">Delete candidate data</h2>
+      <p class="card-sub">Permanently removes the resume file, extracted text, transcript, report, emails and decisions for this application. An audit entry without personal data is kept.</p>
+      <form method="post" action="/recruiter/applications/{{ app.id }}/delete" class="row">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label class="sr-only" for="confirm">Type DELETE to confirm</label>
+        <input class="input input-grow" id="confirm" name="confirm" placeholder="Type DELETE to confirm" autocomplete="off">
+        <button class="btn btn-danger" type="submit">Delete permanently</button>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}

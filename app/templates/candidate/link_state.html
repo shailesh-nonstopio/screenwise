@@ -1,0 +1,34 @@
+{% extends "candidate/_layout.html" %}
+{% import "_macros.html" as m %}
+{% block page_title %}Interview link{% endblock %}
+{% block brand_suffix %}{% endblock %}
+{% block header_container %}container-xs{% endblock %}
+{% block header_right %}{% endblock %}
+{% block content %}
+{% set s = settings() %}
+<div class="container-xs page">
+  <section class="state-card">
+    {% if state == 'expired' %}
+    <div class="state-tag">Expired</div>
+    <h1>This interview link has expired</h1>
+    <p class="p">If you'd still like to take the interview, ask the recruiting team for a new link.</p>
+    <div><a class="btn btn-primary" href="mailto:{{ s.support_email }}?subject=New%20interview%20link">Email {{ s.support_email }}</a></div>
+    {% elif state == 'revoked' %}
+    <div class="state-tag">No longer valid</div>
+    <h1>This link can't be used</h1>
+    <p class="p">It may have been replaced by a newer link or withdrawn. Check your inbox for a more recent email from us, or contact the recruiting team.</p>
+    <div><a class="btn btn-secondary" href="mailto:{{ s.support_email }}">Contact recruiting</a></div>
+    {% elif state == 'submitted' %}
+    <svg class="big-check" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="28" fill="#E7F4EC"/><path d="M18 28.5l6.5 6.5L38 21.5" stroke="#1E6B43" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div class="state-tag">Already submitted</div>
+    <h1>You've already completed this interview</h1>
+    <p class="p">Your answers were submitted{% if isession and isession.completed_at %} on {{ isession.completed_at|dt }}{% endif %} and are locked. There's nothing more to do.</p>
+    {% if isession %}<p class="small muted">Reference <span class="mono">{{ isession.reference_code }}</span></p>{% endif %}
+    {% else %}
+    <div class="state-tag">Not found</div>
+    <h1>We can't find this interview link</h1>
+    <p class="p">Please check you used the full link from your email; copying part of it can break it. If it still doesn't work, contact <a href="mailto:{{ s.support_email }}">{{ s.support_email }}</a>.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

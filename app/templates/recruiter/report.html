@@ -1,0 +1,172 @@
+{% extends "recruiter/_layout.html" %}
+{% import "_macros.html" as m %}
+{% from "recruiter/_app_header.html" import app_header %}
+{% block page_title %}Report · {{ app.candidate.name }}{% endblock %}
+{% block content %}
+{% call app_header(app, row, tab) %}
+  <a class="btn btn-secondary" href="/recruiter/applications/{{ app.id }}/transcript">View transcript</a>
+  {% if data %}
+  <button class="btn btn-secondary" type="button" data-print>Print / PDF</button>
+  <a class="btn btn-secondary" href="/recruiter/applications/{{ app.id }}/report.json">Export JSON</a>
+  {% endif %}
+{% endcall %}
+
+<p class="muted small mb-16">Interview submitted {{ isession.completed_at|dt }} · {{ isession.plan_json.questions|length }} questions · {{ isession.followups_used }} follow-up{{ 's' if isession.followups_used != 1 }} · Rubric v{{ isession.rubric_version }} · Ref <span class="mono">{{ isession.reference_code }}</span>{% if isession.ended_early %} · <span class="tone-amber">ended early</span>{% endif %}</p>
+
+{% if not data %}
+<div class="split">
+  <section class="card main-col">
+    {% if report and report.status == 'failed' %}
+    <div class="alert alert-error" role="alert">{{ m.icon('alert') }}<div><strong>The report couldn't be generated.</strong> {{ report.error }} (attempt {{ report.attempts }}). The transcript is safe; nothing was guessed.</div></div>
+    <form method="post" action="/recruiter/applications/{{ app.id }}/report/generate" class="mt-16"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-primary" type="submit" data-once>Retry now</button></form>
+    {% else %}
+    <h2>Report is being prepared</h2>
+    <p class="card-sub mt-8">The AI summary is {{ 'running' if report and report.status == 'running' else 'queued' }}. This usually takes under a minute. You can also generate it now.</p>
+    <div class="row">
+      <a class="btn btn-secondary" href="/recruiter/applications/{{ app.id }}/report">Refresh</a>
+      <form method="post" action="/recruiter/applications/{{ app.id }}/report/generate"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn-primary" type="submit" data-once>Generate now</button></form>
+    </div>
+    {% endif %}
+  </section>
+  <aside class="side-col">
+    <section class="decision-box" id="decision" aria-labelledby="s-dec0">
+      <div class="eyebrow">Your decision</div>
+      <h2 id="s-dec0" class="mt-8 mb-16">You can decide without the report</h2>
+      {% include "recruiter/_decision_form.html" %}
+    </section>
+  </aside>
+</div>
+{% else %}
+{% set meta = data.get('meta', {}) %}
+{% if meta.get('is_mock') %}
+<div class="alert alert-warning mb-24">{{ m.icon('alert') }}<div><strong>Development mock report.</strong> These ratings come from simple heuristics, not an AI model. Don't use them for real hiring decisions.</div></div>
+{% endif %}
+<div class="split">
+  <div class="main-col">
+    <section class="card" aria-labelledby="s-sum">
+      <h2 id="s-sum">Executive summary</h2>
+      <p class="p mt-12">{{ data.executive_summary }} {{ data.summary_refs|refs }}</p>
+      <p class="xsmall muted mt-12">Answered {{ meta.get('answered', '?') }} of {{ meta.get('scored_total', '?') }} scored questions.</p>
+    </section>
+
+    <section class="card" aria-labelledby="s-crit">
+      <h2 id="s-crit">Essential criteria</h2>
+      <p class="card-sub">Each essential criterion is rated on its own. No overall average is calculated, so a gap can't be hidden.</p>
+      <div class="table-wrap">
+        <table class="table top table-min-760">
+          <thead><tr><th scope="col">Criterion</th><th scope="col">Rating</th><th scope="col">Evidence</th><th scope="col">Open gap</th></tr></thead>
+          <tbody>
+            {% for c in data.criteria %}
+            <tr>
+              <th scope="row" class="medium">{{ c.name }}</th>
+              <td>{{ m.pips(c.rating) }}<div class="rating-label">{{ c|rating_label }}</div></td>
+              <td class="small">{{ c.evidence }} {{ c.refs|refs }}</td>
+              <td class="small muted">{{ c.gap or '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="s-q">
+      <h2 id="s-q">Question-level review</h2>
+      <p class="card-sub">Answers are quoted from the locked transcript.</p>
+      {% set qrat = {} %}{% for q in data.questions %}{% set _ = qrat.update({q.q: q}) %}{% endfor %}
+      <div class="stack">
+        {% for key, q in plan_qs.items() %}
+        {% set r = qrat.get(key) %}
+        <article class="qcard" id="{{ key|lower }}">
+          <div class="row-between">
+            <div class="row grow"><span class="mono small muted">{{ key }}</span><h3 class="medium">{{ q.text }}</h3></div>
+            <div class="row">
+              {{ m.chip(q.category_label, 'blue', dot=False) }}
+              {% if not q.scored %}{{ m.chip('Not scored', 'neutral', dot=False) }}{% elif r %}{{ m.chip(r|rating_label, m.status_tone(r)|trim, dot=False) }}{% endif %}
+            </div>
+          </div>
+          {% for a in answers.get(key, []) %}<blockquote class="answer">{{ a }}</blockquote>{% else %}<p class="small muted mt-12">Not answered.</p>{% endfor %}
+          {% if r and r.explanation %}<p class="small mt-12 tone-ink"><strong>Why:</strong> {{ r.explanation }}</p>{% endif %}
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <div class="grid-auto">
+      <section class="card" aria-labelledby="s-str">
+        <h2 id="s-str">Strengths</h2>
+        <ul class="mt-12">{% for s in data.strengths %}<li class="li">{{ s.text }} {{ s.refs|refs }}</li>{% else %}<li class="li muted">No evidenced strengths recorded.</li>{% endfor %}</ul>
+      </section>
+      <section class="card" aria-labelledby="s-gap">
+        <h2 id="s-gap">Gaps and uncertainties</h2>
+        <ul class="mt-12">{% for g in data.gaps %}<li class="li"><strong>{{ {'not_demonstrated':'Not demonstrated','not_asked':'Not asked','unverified':'Unverified'}[g.kind] }}:</strong> {{ g.text }} {{ g.refs|refs }}</li>{% else %}<li class="li muted">None recorded.</li>{% endfor %}</ul>
+      </section>
+    </div>
+
+    <section class="card" aria-labelledby="s-x">
+      <h2 id="s-x">Resume cross-check</h2>
+      <p class="card-sub">Differences are stated neutrally. An inconsistency is a prompt to ask, not a judgement about honesty.</p>
+      <div class="grid-auto">
+        {% for key, title, tone in [('supported','Supported by interview','tone-green'),('needs_clarification','Needs clarification','tone-amber'),('not_covered','Not covered','tone-ink')] %}
+        <div class="box">
+          <div class="xcheck-title {{ tone }}">{{ title }}</div>
+          {% for it in data.resume_crosscheck[key] %}<p class="small mb-8">{{ it.text }} {{ it.refs|refs }}</p>{% else %}<p class="small muted">None.</p>{% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    {% if data.behaviors %}
+    <section class="card" aria-labelledby="s-beh">
+      <h2 id="s-beh">Workplace behaviours</h2>
+      <p class="card-sub">Against the job's stated anchors only.</p>
+      <div class="grid-auto">
+        {% for b in data.behaviors %}
+        <div class="box">
+          <div class="row-between"><span class="medium">{{ b.name }}</span>{{ m.chip(b|rating_label, m.status_tone(b)|trim, dot=False) }}</div>
+          <p class="small mt-8 tone-ink">{{ b.note }} {{ b.refs|refs }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="card" aria-labelledby="s-fu">
+      <h2 id="s-fu">Suggested follow-up</h2>
+      <ol class="mt-12">{% for f in data.follow_ups %}<li class="li"><strong>{{ {'exercise':'Practical exercise','technical_interview':'Technical interview','recruiter_question':'Recruiter question'}[f.kind] }}:</strong> {{ f.text }}</li>{% else %}<li class="li muted">None suggested.</li>{% endfor %}</ol>
+    </section>
+
+    {% set cited = [] %}
+    {% for c in data.criteria %}{% for r in c.refs if r.startswith('R-') %}{% if r not in cited %}{% set _ = cited.append(r) %}{% endif %}{% endfor %}{% endfor %}
+    {% for k in ['supported','needs_clarification','not_covered'] %}{% for it in data.resume_crosscheck[k] %}{% for r in it.refs if r.startswith('R-') %}{% if r not in cited %}{% set _ = cited.append(r) %}{% endif %}{% endfor %}{% endfor %}{% endfor %}
+    {% if cited %}
+    <section class="card card-quiet" aria-labelledby="s-cited">
+      <h2 id="s-cited">Resume lines cited</h2>
+      <div class="resume-text mt-12">{% for r in cited|sort %}<p id="{{ r|lower|replace('-', '') }}"><span class="ref-tag">{{ r }}</span><span>{{ resume_lines.get(r, '(line not found)') }}</span></p>{% endfor %}</div>
+    </section>
+    {% endif %}
+  </div>
+
+  <aside class="side-col" aria-label="Recommendation and decision">
+    <section class="ai-box" aria-labelledby="s-ai">
+      <div class="eyebrow eyebrow-violet">{{ m.icon('star', 16) }}AI recommendation · advisory</div>
+      <h2 id="s-ai" class="mt-8">{{ data.recommendation_label }}</h2>
+      <p class="small mt-8 tone-ink">{{ data.recommendation_rationale }}</p>
+      {% if data.policy_adjustments %}
+      <details class="mt-12 small"><summary class="medium">Policy checks applied ({{ data.policy_adjustments|length }})</summary>
+        <ul class="mt-8 policy">{% for a in data.policy_adjustments %}<li class="li">{{ a }}</li>{% endfor %}</ul></details>
+      {% endif %}
+      <p class="xsmall muted mt-12">This does not change the candidate's status. Generated by {{ meta.get('provider') }}{% if meta.get('model') %} ({{ meta.get('model') }}){% endif %} on {{ report.generated_at|dt }}.</p>
+    </section>
+
+    <section class="decision-box" id="decision" aria-labelledby="s-dec">
+      <div class="eyebrow">Your decision</div>
+      <h2 id="s-dec" class="mt-8">Recorded separately from the AI</h2>
+      <p class="small muted mt-4 mb-16">Nothing happens to the candidate until you decide.</p>
+      {% include "recruiter/_decision_form.html" %}
+    </section>
+
+    <p class="xsmall muted">Scoring never uses camera, voice, accent, appearance, emotion or protected characteristics. This report was generated from the transcript and resume text only.</p>
+  </aside>
+</div>
+{% endif %}
+{% endblock %}

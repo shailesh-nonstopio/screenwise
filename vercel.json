@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "app/main.py": {
+      "maxDuration": 60,
+      "excludeFiles": "{tests/**,var/**,*.db,.venv/**,docs/**}"
+    }
+  },
+  "crons": [
+    { "path": "/api/cron/maintenance", "schedule": "0 3 * * *" }
+  ]
+}

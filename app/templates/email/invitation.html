@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Your written interview</title></head>
+<body style="margin:0;padding:0;background:#F6F7F9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#14171F;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F6F7F9;padding:24px 12px;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border:1px solid #E3E6EB;border-radius:12px;">
+<tr><td style="padding:28px 32px 8px;font-size:15px;font-weight:600;">{{ s.company_name }}</td></tr>
+<tr><td style="padding:8px 32px 0;font-size:15px;line-height:1.6;color:#2B303B;">
+<p style="margin:0 0 12px;">Hi {{ candidate_first }},</p>
+<p style="margin:0 0 12px;">Thanks for applying for the <strong>{{ job.title }}</strong> role. The next step is a short written interview you can take at a time that suits you.</p>
+{% if note %}<p style="margin:0 0 12px;padding:12px 14px;background:#F6F7F9;border-radius:8px;white-space:pre-line;">{{ note }}</p>{% endif %}
+</td></tr>
+<tr><td style="padding:12px 32px 4px;">
+<a href="{{ link }}" style="display:inline-block;background:#2F4BD8;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:13px 22px;border-radius:8px;">Start your interview</a>
+</td></tr>
+<tr><td style="padding:8px 32px 0;font-size:13px;color:#5B6372;">This link is personal to you and works until <strong>{{ expires_at|dt }}</strong>.</td></tr>
+<tr><td style="padding:16px 32px 0;font-size:15px;line-height:1.6;color:#2B303B;">
+<h2 style="font-size:15px;margin:16px 0 6px;color:#14171F;">What to expect</h2>
+<ul style="margin:0 0 8px;padding-left:20px;">
+<li>About <strong>{{ job.estimated_minutes }} minutes</strong>, {{ question_count }} questions plus a few short follow-ups.</li>
+<li>Questions appear one at a time in a chat window. Read each one and <strong>type your answer</strong> in the box, then press Submit.</li>
+<li>You can <strong>ask for clarification</strong> at any time. Asking does not count against you.</li>
+<li>You can edit an answer before you submit it. If your connection drops, your progress is saved.</li>
+</ul>
+<h2 style="font-size:15px;margin:16px 0 6px;color:#14171F;">Camera and microphone</h2>
+<p style="margin:0 0 8px;">Not used. This is a text-only interview: your camera and microphone stay off and nothing is recorded except what you type.</p>
+<h2 style="font-size:15px;margin:16px 0 6px;color:#14171F;">How your answers are used</h2>
+<p style="margin:0 0 8px;">Your answers and resume are processed by an AI system ({{ s.ai_processor_name }}) to prepare a summary for our recruiting team. A recruiter reviews every interview and makes all decisions; the AI does not reject anyone. We keep this data for {{ s.retention_days }} days and you can ask us to delete it sooner. <a href="{{ s.base_url }}/privacy" style="color:#2F4BD8;">Read the privacy notice</a>.</p>
+<h2 style="font-size:15px;margin:16px 0 6px;color:#14171F;">Need an adjustment?</h2>
+<p style="margin:0 0 8px;">If you need extra time, a different format or any other accommodation, email <a href="mailto:{{ s.accessibility_email }}" style="color:#2F4BD8;">{{ s.accessibility_email }}</a> before you start and we will arrange it.</p>
+<h2 style="font-size:15px;margin:16px 0 6px;color:#14171F;">Technical help</h2>
+<p style="margin:0 0 8px;">Use a recent browser on a computer or phone. If something goes wrong, write to <a href="mailto:{{ s.support_email }}" style="color:#2F4BD8;">{{ s.support_email }}</a>.</p>
+<p style="margin:20px 0 28px;">Best wishes,<br>{{ s.company_name }} Recruiting</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

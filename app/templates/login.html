@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Sign in · {{ settings().product_name }}{% endblock %}
+{% block body %}
+<main id="main" class="auth-wrap">
+  <div class="auth-card">
+    <div class="row mb-24">{{ m.logo() }}<span class="strong">{{ settings().product_name }}</span></div>
+    <section class="card">
+      <h1 class="mb-8">Sign in</h1>
+      <p class="muted mb-24">Recruiter access for {{ settings().company_name }}.</p>
+      {{ m.flashes(flashes) }}
+      {% if error %}<div class="alert alert-error mb-16" role="alert">{{ m.icon('alert') }}<div>{{ error }}</div></div>{% endif %}
+      <form method="post" action="/login" class="stack" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="next" value="{{ next }}">
+        <div class="field"><label class="label" for="email">Email</label><input class="input" id="email" name="email" type="email" value="{{ email }}" autocomplete="username" required autofocus></div>
+        <div class="field"><label class="label" for="password">Password</label><input class="input" id="password" name="password" type="password" autocomplete="current-password" required></div>
+        <button class="btn btn-primary btn-block mt-8" type="submit">Sign in</button>
+      </form>
+    </section>
+    <p class="small muted mt-16 center">Looking for a job? <a href="/jobs">See open roles</a></p>
+  </div>
+</main>
+{% endblock %}

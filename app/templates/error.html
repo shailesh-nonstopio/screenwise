@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ title }} · {{ settings().product_name }}{% endblock %}
+{% block body %}
+<main id="main" class="auth-wrap">
+  <div class="auth-card">
+    <section class="state-card">
+      <div class="state-tag">Error {{ code }}</div>
+      <h1>{{ title }}</h1>
+      <p class="p">{{ detail }}</p>
+      <div class="row mt-8"><a class="btn btn-secondary" href="/" data-back>Go back</a>{% if user %}<a class="btn btn-ghost" href="/recruiter">Dashboard</a>{% endif %}</div>
+    </section>
+  </div>
+</main>
+{% endblock %}
+{% block scripts %}<script src="/static/js/app.js?v=1" defer></script>{% endblock %}

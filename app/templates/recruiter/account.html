@@ -1,0 +1,16 @@
+{% extends "recruiter/_layout.html" %}
+{% import "_macros.html" as m %}
+{% block page_title %}Account{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Your account</h1><p>{{ user.name }} · {{ user.email }} · {{ 'Administrator' if user.is_admin else 'Recruiter' }}</p></div></div>
+<section class="card container-xs">
+  <h2 class="mb-16">Change password</h2>
+  <form method="post" action="/recruiter/account/password" class="stack" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="field"><label class="label" for="current">Current password</label><input class="input{{ m.invalid(errors, 'current') }}" id="current" name="current" type="password" autocomplete="current-password">{{ m.field_error(errors, 'current') }}</div>
+    <div class="field"><label class="label" for="new">New password</label><input class="input{{ m.invalid(errors, 'new') }}" id="new" name="new" type="password" autocomplete="new-password"><span class="hint">At least 12 characters.</span>{{ m.field_error(errors, 'new') }}</div>
+    <div class="field"><label class="label" for="confirm">Confirm new password</label><input class="input{{ m.invalid(errors, 'confirm') }}" id="confirm" name="confirm" type="password" autocomplete="new-password">{{ m.field_error(errors, 'confirm') }}</div>
+    <div class="row"><button class="btn btn-primary" type="submit">Update password</button></div>
+  </form>
+</section>
+{% endblock %}

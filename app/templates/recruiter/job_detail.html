@@ -1,0 +1,126 @@
+{% extends "recruiter/_layout.html" %}
+{% import "_macros.html" as m %}
+{% block page_title %}{{ job.title }}{% endblock %}
+{% block content %}
+<a class="back" href="/recruiter/jobs">← All jobs</a>
+<div class="page-head">
+  <div>
+    <div class="row">
+      <h1>{{ job.title }}</h1>
+      {{ m.chip(job.status|capitalize, {'open':'green','draft':'neutral','closed':'outline'}[job.status]) }}
+      {{ m.chip('Rubric v%d' % job.rubric_version, 'neutral', dot=False) }}
+    </div>
+    <p>{{ SENIORITY_LABELS.get(job.seniority, job.seniority) }}{% if job.department %} · {{ job.department }}{% endif %}{% if job.location %} · {{ job.location }}{% endif %} · <a href="/recruiter?job_id={{ job.id }}">{{ app_count }} application{{ 's' if app_count != 1 }}</a></p>
+  </div>
+  <div class="row">
+    <a class="btn btn-secondary" href="/recruiter/jobs/{{ job.id }}/edit">Edit job &amp; rubric</a>
+    <a class="btn btn-secondary" href="/recruiter/jobs/{{ job.id }}/applications/new">Add application</a>
+    <form method="post" action="/recruiter/jobs/{{ job.id }}/status">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% if job.status == 'open' %}
+      <input type="hidden" name="status" value="closed"><button class="btn btn-secondary" type="submit">Close applications</button>
+      {% else %}
+      <input type="hidden" name="status" value="open"><button class="btn btn-primary" type="submit">Publish job</button>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+{% if job.status == 'open' %}
+<div class="alert alert-success mb-24">{{ m.icon('check') }}
+  <div><strong>Accepting applications.</strong> Public page:
+    <span class="devlink"><code id="public-link">{{ settings().base_url.rstrip('/') }}/jobs/{{ job.id }}</code>
+    <button type="button" class="btn btn-secondary btn-sm" data-copy="#public-link">Copy link</button>
+    <a class="btn btn-ghost btn-sm" href="/jobs/{{ job.id }}" target="_blank" rel="noopener">Open ↗</a></span>
+  </div>
+</div>
+{% elif job.status == 'draft' %}
+<div class="alert alert-info mb-24">{{ m.icon('info') }}<div><strong>Draft.</strong> Review the core questions below, then publish to open the public application page.</div></div>
+{% endif %}
+
+<div class="split">
+  <div class="main-col">
+    <section class="card" id="questions" aria-labelledby="s-q">
+      <div class="row-between">
+        <div>
+          <h2 id="s-q">Core questions</h2>
+          <p class="card-sub">Asked to every candidate for this role, in this order, after a short question tailored to their resume. Saving creates a new rubric version.</p>
+        </div>
+        <form method="post" action="/recruiter/jobs/{{ job.id }}/questions/regenerate" data-confirm="Replace the current core questions with a fresh draft?">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="btn btn-secondary btn-sm" type="submit">Redraft with {{ 'AI' if settings().llm_provider != 'mock' else 'templates' }}</button>
+        </form>
+      </div>
+      {% set crit = {} %}{% for c in job.essential_criteria %}{% set _ = crit.update({c.id: c.name}) %}{% endfor %}
+      {% set beh = {} %}{% for b in job.rubric_json.get('behaviors', []) %}{% set _ = beh.update({b.id: b.name}) %}{% endfor %}
+      <form method="post" action="/recruiter/jobs/{{ job.id }}/questions">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <ol class="qlist">
+          {% for q in job.core_questions_json %}
+          <li class="qitem">
+            <span class="qnum">{{ loop.index }}</span>
+            <div class="grow stack-sm">
+              <div class="row">
+                {{ m.chip(CATEGORY_LABELS.get(q.category, q.category), 'blue', dot=False) }}
+                {{ m.chip(crit.get(q.criterion_id) or beh.get(q.behavior_id) or 'General', 'neutral', dot=False) }}
+              </div>
+              <label class="sr-only" for="q-{{ q.id }}-text">Question {{ loop.index }}</label>
+              <textarea class="textarea" id="q-{{ q.id }}-text" name="q-{{ q.id }}-text" rows="2" maxlength="600">{{ q.text }}</textarea>
+              <label class="xsmall muted" for="q-{{ q.id }}-clarification">Clarification shown if the candidate asks</label>
+              <textarea class="textarea" id="q-{{ q.id }}-clarification" name="q-{{ q.id }}-clarification" rows="2" maxlength="600">{{ q.clarification }}</textarea>
+              <label class="check small"><input type="checkbox" name="q-{{ q.id }}-remove" value="1"><span> Remove this question</span></label>
+            </div>
+          </li>
+          {% endfor %}
+        </ol>
+        <details class="box mt-16">
+          <summary class="medium">Add a question</summary>
+          <div class="stack mt-12">
+            <div class="form-grid">
+              <div class="field"><label class="label" for="new-category">Category</label>
+                <select class="select" id="new-category" name="new-category">
+                  {% for k in ['role_skills','depth','problem_solving','communication','workplace'] %}<option value="{{ k }}">{{ CATEGORY_LABELS[k] }}</option>{% endfor %}
+                </select></div>
+              <div class="field"><label class="label" for="new-target">Assesses</label>
+                <select class="select" id="new-target" name="new-target">
+                  {% for c in job.essential_criteria %}<option value="c:{{ c.id }}">{{ c.name }}</option>{% endfor %}
+                  {% for b in job.rubric_json.get('behaviors', []) if b.enabled %}<option value="b:{{ b.id }}">{{ b.name }}</option>{% endfor %}
+                </select></div>
+            </div>
+            <div class="field"><label class="label" for="new-text">Question</label><textarea class="textarea" id="new-text" name="new-text" rows="2" maxlength="600"></textarea></div>
+            <div class="field"><label class="label" for="new-clarification">Clarification</label><textarea class="textarea" id="new-clarification" name="new-clarification" rows="2" maxlength="600"></textarea></div>
+          </div>
+        </details>
+        <div class="row mt-16"><button class="btn btn-primary" type="submit">Save questions</button></div>
+      </form>
+    </section>
+  </div>
+
+  <aside class="side-col">
+    <section class="card">
+      <h2 class="mb-12">Essential criteria</h2>
+      <ul class="small">
+        {% for c in job.essential_criteria %}<li class="li"><span class="medium">{{ c.name }}</span>{% if c.description %}<br><span class="muted">{{ c.description }}</span>{% endif %}</li>{% endfor %}
+      </ul>
+      {% if job.preferred_criteria %}
+      <h3 class="mt-16 mb-8">Preferred</h3>
+      <div class="row">{% for p in job.preferred_criteria %}{{ m.chip(p, 'outline', dot=False) }}{% endfor %}</div>
+      {% endif %}
+    </section>
+    <section class="card">
+      <h2 class="mb-12">Interview settings</h2>
+      <dl class="kv small">
+        <dt>Estimated time</dt><dd>{{ job.estimated_minutes }} min</dd>
+        <dt>Questions</dt><dd>{{ job.core_questions_json|length + 2 }} (incl. resume and closing)</dd>
+        <dt>Max follow-ups</dt><dd>{{ job.max_followups }}</dd>
+        <dt>Link valid</dt><dd>{{ job.invite_valid_days }} days</dd>
+        <dt>Behaviours</dt><dd>{{ job.rubric_json.get('behaviors', [])|selectattr('enabled')|map(attribute='name')|join(', ') or 'None' }}</dd>
+      </dl>
+    </section>
+    <section class="card card-quiet">
+      <h2 class="mb-8">Experience bands</h2>
+      <ul class="small">{% for b in job.experience_bands_json %}<li class="li"><span class="mono">{{ b.label }}</span> — {{ b.focus }}</li>{% endfor %}</ul>
+    </section>
+  </aside>
+</div>
+{% endblock %}
