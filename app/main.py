@@ -63,8 +63,11 @@ def _bootstrap() -> None:
     if s.should_auto_migrate:
         run_migrations()
     if s.bootstrap_admin_email and s.bootstrap_admin_password:
-        with db_session() as db:
-            ensure_admin(db, s.bootstrap_admin_email, s.bootstrap_admin_password)
+        try:
+            with db_session() as db:
+                ensure_admin(db, s.bootstrap_admin_email, s.bootstrap_admin_password)
+        except Exception:  # noqa: BLE001 - an admin bootstrap problem must not take the whole app down
+            log.exception("bootstrap admin creation failed; the app keeps running")
 
 
 @asynccontextmanager

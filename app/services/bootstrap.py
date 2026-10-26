@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 from sqlalchemy import func, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -39,14 +40,26 @@ def run_migrations() -> None:
 
 
 def ensure_admin(db: Session, email: str, password: str, name: str = "Administrator") -> User | None:
-    """Create the first admin if no users exist yet. Never overwrites an existing account."""
-    if db.scalar(select(func.count(User.id))):
+    """Create the first admin if no users exist yet. Never overwrites an existing account.
+
+    Safe when several serverless instances start at once: on PostgreSQL an advisory lock
+    serialises the check-and-insert, and a lost race (unique email) is treated as success.
+    """
+    try:
+        if db.get_bind().dialect.name == "postgresql":
+            db.execute(text("SELECT pg_advisory_xact_lock(72412)"))
+        if db.scalar(select(func.count(User.id))):
+            db.rollback()
+            return None
+        user = User(email=email.strip().lower(), name=name, password_hash=hash_password(password), role="admin")
+        db.add(user)
+        db.flush()
+        audit.record(db, "user.bootstrapped", "user", user.id, actor_type="system")
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        log.info("bootstrap administrator already created by another instance")
         return None
-    user = User(email=email.strip().lower(), name=name, password_hash=hash_password(password), role="admin")
-    db.add(user)
-    db.flush()
-    audit.record(db, "user.bootstrapped", "user", user.id, actor_type="system")
-    db.commit()
     log.info("bootstrap administrator created")
     return user
 
